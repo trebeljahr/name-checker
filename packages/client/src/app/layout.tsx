@@ -3,10 +3,23 @@ import "@/styles/globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "My App",
-    template: "%s | My App",
+    default: "Name Checker",
+    template: "%s | Name Checker",
   },
-  description: "A full-stack web application",
+  description:
+    "Check name availability across domains, trademarks, app stores, and company registries.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/favicon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 const THEME_BOOTSTRAP = `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(e){}})();`;

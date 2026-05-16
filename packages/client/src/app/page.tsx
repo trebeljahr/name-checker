@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { HeroSearch } from "@/components/HeroSearch";
 import { LiveDemo } from "@/components/LiveDemo";
+import { LogoMark } from "@/components/LogoMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
 
@@ -97,9 +98,7 @@ export default function LandingPage(): React.ReactElement {
       {/* Top nav */}
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/15 ring-1 ring-inset ring-emerald-500/30">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
-          </div>
+          <LogoMark className="h-7 w-7" />
           <span className="font-mono text-sm font-semibold text-foreground">name-check</span>
         </div>
         <div className="flex items-center gap-4">
@@ -334,9 +333,7 @@ export default function LandingPage(): React.ReactElement {
       <footer className="border-t border-border bg-background">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-6 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/15 ring-1 ring-inset ring-emerald-500/30">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
-            </div>
+            <LogoMark className="h-6 w-6" />
             <span className="font-mono text-foreground/80">name-check</span>
             <span className="text-muted-foreground/50">·</span>
             <span>One search. Every place that matters.</span>

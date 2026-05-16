@@ -1,0 +1,57 @@
+type LogoMarkProps = {
+  className?: string;
+  title?: string;
+};
+
+export function LogoMark({
+  className,
+  title = "name-check",
+}: LogoMarkProps): React.ReactElement {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 64 64"
+      role="img"
+      aria-label={title}
+      className={className}
+    >
+      <defs>
+        <clipPath id="logoGlobeClip">
+          <circle cx="32" cy="32" r="22" />
+        </clipPath>
+      </defs>
+      <rect width="64" height="64" rx="12" fill="#0ea5e9" />
+      <circle cx="32" cy="32" r="22" fill="#0c4a6e" />
+      <g
+        clipPath="url(#logoGlobeClip)"
+        stroke="#7dd3fc"
+        strokeWidth="1.5"
+        fill="none"
+        strokeLinecap="round"
+      >
+        <line x1="10" y1="32" x2="54" y2="32" />
+        <ellipse cx="32" cy="32" rx="7" ry="22" />
+        <ellipse cx="32" cy="32" rx="15" ry="22" />
+        <path d="M8 22 Q32 17 56 22" />
+        <path d="M8 42 Q32 47 56 42" />
+      </g>
+      <circle
+        cx="32"
+        cy="32"
+        r="22"
+        fill="none"
+        stroke="#f0f9ff"
+        strokeWidth="2"
+      />
+      <circle cx="48" cy="48" r="11" fill="#22c55e" />
+      <path
+        d="M43 48 L47 52 L54 44"
+        fill="none"
+        stroke="white"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
