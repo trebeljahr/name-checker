@@ -111,7 +111,7 @@ Tools:
 ### Web UI
 
 ```bash
-pnpm run dev          # Next.js dev on :3000 (or your configured port)
+pnpm run dev          # Next.js dev on :3742
 ```
 
 - `/` — landing.
