@@ -6,6 +6,7 @@ import type {
   ProviderCategory,
   ProviderResult,
 } from "@starter/shared";
+import Link from "next/link";
 import { ResultsView } from "./CheckResults";
 import { getRecent, pushRecent } from "@/lib/history";
 
@@ -221,6 +222,28 @@ export function CheckForm({
             className="h-full animate-pulse rounded bg-muted-foreground/60"
             style={{ width: "60%" }}
           />
+        </div>
+      )}
+
+      {!running && summary && query.trim() && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
+          <div>
+            <div className="font-semibold text-foreground">
+              Like the name? Reserve it.
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Brand passport claims{" "}
+              <span className="font-mono">{query.trim()}</span> on GitHub, npm,
+              and Bluesky in one flow.
+            </div>
+          </div>
+          <Link
+            href={`/passport/${encodeURIComponent(query.trim())}`}
+            data-testid="open-passport"
+            className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            Open Passport →
+          </Link>
         </div>
       )}
 

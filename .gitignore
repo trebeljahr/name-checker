@@ -65,3 +65,7 @@ docs-site/build/
 # Misc
 *.log
 npm-debug.log*
+
+# Passport sidecar reservation store (used until better-auth/db lands)
+data/reservations.json
+data/passport-sessions.json

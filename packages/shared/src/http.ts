@@ -3,7 +3,7 @@ const UA = "name-checker/0.1 (+https://github.com/ricotrebeljahr/name-checker)";
 export type FetchOpts = {
   signal?: AbortSignal;
   timeoutMs?: number;
-  method?: "GET" | "HEAD" | "POST";
+  method?: "GET" | "HEAD" | "POST" | "PUT" | "DELETE";
   headers?: Record<string, string>;
   body?: string;
   redirect?: "follow" | "manual" | "error";
