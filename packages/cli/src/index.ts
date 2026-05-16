@@ -4,14 +4,24 @@ import {
   allProviders,
   runCheck,
   type CheckRequest,
+  type CheckSummary,
   type ProviderResult,
 } from "@starter/shared";
-import { parseArgs } from "./args.js";
-import { formatProviderRow, formatSummary, paintStatus } from "./format.js";
+import { parseArgs, type ParsedArgs } from "./args.js";
+import {
+  formatCompareMatrix,
+  formatCsv,
+  formatMarkdown,
+  formatProviderRow,
+  formatSummary,
+  paintStatus,
+  strictHasFailure,
+  verdictHasFailure,
+} from "./format.js";
 import { HELP } from "./help.js";
 
 async function main(): Promise<number> {
-  let args;
+  let args: ParsedArgs;
   try {
     args = parseArgs(process.argv.slice(2));
   } catch (err) {
@@ -29,21 +39,25 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  if (!args.query) {
+  const names = args.compare ?? (args.query ? [args.query] : []);
+  if (names.length === 0) {
     process.stderr.write("error: missing <name>\n\n" + HELP);
     return 2;
   }
 
-  const req: CheckRequest = {
-    query: args.query,
+  const baseReq = (query: string): CheckRequest => ({
+    query,
     categories: args.categories,
     providers: args.providers,
     excludeProviders: args.excludeProviders,
     timeoutMs: args.timeoutMs,
     concurrency: args.concurrency,
-  };
+  });
 
-  const isTty = process.stdout.isTTY && !args.json;
+  const isCompare = (args.compare?.length ?? 0) > 0;
+  const wantsStructured = args.json || args.csv || args.md;
+  const isTty = process.stdout.isTTY && !wantsStructured && !isCompare;
+
   const maxName = Math.max(...allProviders.map((p) => p.name.length));
   const onResult = isTty
     ? (r: ProviderResult): void => {
@@ -53,26 +67,36 @@ async function main(): Promise<number> {
 
   if (isTty) {
     process.stdout.write(
-      pc.bold(`\nname-check: ${pc.cyan(args.query)}\n`) +
+      pc.bold(`\nname-check: ${pc.cyan(names[0]!)}\n`) +
         pc.gray("Running providers…\n\n"),
     );
   }
 
-  const summary = await runCheck(req, onResult);
+  const summaries: CheckSummary[] = await Promise.all(
+    names.map((n) => runCheck(baseReq(n), n === names[0] ? onResult : undefined)),
+  );
 
   if (args.json) {
-    process.stdout.write(JSON.stringify(summary, null, 2) + "\n");
+    const payload = isCompare ? summaries : summaries[0];
+    process.stdout.write(JSON.stringify(payload, null, 2) + "\n");
+  } else if (args.csv) {
+    process.stdout.write(formatCsv(summaries));
+  } else if (args.md) {
+    for (const s of summaries) process.stdout.write(formatMarkdown(s));
+  } else if (isCompare) {
+    process.stdout.write(formatCompareMatrix(summaries) + "\n");
   } else if (isTty) {
     process.stdout.write("\n");
-    process.stdout.write(formatSummary(summary, args.showAll));
+    process.stdout.write(formatSummary(summaries[0]!, args.showAll));
   } else {
-    for (const r of summary.results)
+    for (const r of summaries[0]!.results)
       process.stdout.write(
         `${paintStatus(r.status)}\t${r.providerId}\t${r.detail ?? ""}\t${r.verifyUrl ?? ""}\n`,
       );
   }
 
-  return summary.verdict === "likely_taken" ? 1 : 0;
+  if (args.strict) return strictHasFailure(summaries) ? 1 : 0;
+  return verdictHasFailure(summaries) ? 1 : 0;
 }
 
 function listProviders(): void {
