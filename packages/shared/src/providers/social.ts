@@ -186,7 +186,7 @@ const tiktok: Provider = {
     try {
       const res = await fetchWithTimeout(verifyUrl, {
         signal,
-        timeoutMs: 8000,
+        timeoutMs: 5000,
         headers: { "user-agent": BROWSER_UA, accept: "text/html,*/*" },
       });
       if (res.status === 404) {
@@ -488,7 +488,7 @@ const threads: Provider = {
     try {
       const res = await fetchWithTimeout(verifyUrl, {
         signal,
-        timeoutMs: 8000,
+        timeoutMs: 5000,
         headers: { "user-agent": BROWSER_UA, accept: "text/html,*/*" },
       });
       if (res.status === 404) {

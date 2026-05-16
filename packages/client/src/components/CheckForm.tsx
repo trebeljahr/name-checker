@@ -32,10 +32,12 @@ export function CheckForm({
   initialQuery = "",
   initialResults,
   initialSummary,
+  autoRun = false,
 }: {
   initialQuery?: string;
   initialResults?: ProviderResult[];
   initialSummary?: CheckSummary | null;
+  autoRun?: boolean;
 } = {}): React.ReactElement {
   const [query, setQuery] = useState<string>(initialQuery);
   const [categories, setCategories] =
@@ -64,6 +66,17 @@ export function CheckForm({
     }
     window.addEventListener("mousedown", onClick);
     return () => window.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const didAutoRunRef = useRef(false);
+  useEffect(() => {
+    if (didAutoRunRef.current) return;
+    if (!autoRun) return;
+    if (!initialQuery.trim()) return;
+    if (initialResults && initialResults.length > 0) return;
+    didAutoRunRef.current = true;
+    void run(initialQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggleCategory(c: ProviderCategory): void {

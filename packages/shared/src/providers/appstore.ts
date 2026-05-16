@@ -131,7 +131,7 @@ const googlePlay: Provider = {
     try {
       const res = await fetchWithTimeout(verifyUrl, {
         signal,
-        timeoutMs: 10_000,
+        timeoutMs: 6000,
         headers: {
           "user-agent": BROWSER_UA,
           accept:

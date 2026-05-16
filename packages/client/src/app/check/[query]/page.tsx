@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { runCheck } from "@starter/shared";
 import { CheckForm } from "@/components/CheckForm";
 import { LogoMark } from "@/components/LogoMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -29,8 +28,10 @@ export default async function CheckPermalinkPage({
 }): Promise<React.ReactElement> {
   const { query: raw } = await params;
   const query = decodeURIComponent(raw);
-  const summary = await runCheck({ query });
 
+  // No SSR runCheck — CheckForm auto-fetches via /api/check?stream=1 on mount.
+  // Keeps TTFB instant; results stream client-side instead of blocking the
+  // page on 50+ provider fetches whose slowest tail dictates page latency.
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 pt-6">
@@ -49,11 +50,7 @@ export default async function CheckPermalinkPage({
           <ThemeToggle />
         </div>
       </div>
-      <CheckForm
-        initialQuery={query}
-        initialResults={summary.results}
-        initialSummary={summary}
-      />
+      <CheckForm initialQuery={query} autoRun />
     </main>
   );
 }

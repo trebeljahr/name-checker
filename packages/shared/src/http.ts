@@ -80,6 +80,9 @@ export async function fetchWithTimeout(
       body: opts.body,
       signal,
       redirect: opts.redirect ?? "follow",
+      // Skip Next.js data cache. Provider responses are per-request and
+      // logging "Failed to set fetch cache ... provider timeout" is noise.
+      cache: "no-store",
     });
   } finally {
     clearTimeout(t);

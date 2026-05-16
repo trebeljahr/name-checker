@@ -71,8 +71,8 @@ export async function runCheckWithProviders(
   onResult?: (r: ProviderResult) => void,
 ): Promise<CheckSummary> {
   const startedAtDate = new Date();
-  const concurrency = req.concurrency ?? 10;
-  const timeoutMs = req.timeoutMs ?? 12_000;
+  const concurrency = req.concurrency ?? 20;
+  const timeoutMs = req.timeoutMs ?? 7_000;
   const query = safeQuery(req.query);
   if (!query) throw new Error("query is required");
 
