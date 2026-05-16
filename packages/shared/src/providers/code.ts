@@ -12,20 +12,37 @@ const githubRepoSearch: Provider = {
     const verifyUrl = `https://github.com/search?q=${encode(query)}+in%3Aname&type=repositories`;
     if (!name) return { status: "unknown", detail: "No valid repo-name chars." };
     try {
+      const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
+      const headers: Record<string, string> = { accept: "application/vnd.github+json" };
+      if (token) headers.authorization = `Bearer ${token}`;
       const res = await fetchWithTimeout(
         `https://api.github.com/search/repositories?q=${encode(name)}+in:name&per_page=10`,
         {
           signal,
           timeoutMs: 8000,
-          headers: { accept: "application/vnd.github+json" },
+          headers,
         },
       );
-      if (res.status === 403)
+      if (res.status === 401)
         return {
-          status: "unknown",
+          status: "manual_verify",
           verifyUrl,
-          detail: "GitHub search API rate-limit (anonymous).",
+          detail: "GitHub token invalid or expired.",
         };
+      if (res.status === 403) {
+        const body = await res.text().catch(() => "");
+        if (/rate limit/i.test(body))
+          return {
+            status: "unknown",
+            verifyUrl,
+            detail: "GitHub API rate-limited. Set GITHUB_TOKEN to raise the limit.",
+          };
+        return {
+          status: "manual_verify",
+          verifyUrl,
+          detail: `Got 403.`,
+        };
+      }
       if (!res.ok)
         return { status: "manual_verify", verifyUrl, detail: `Got ${res.status}.` };
       const data = (await res.json()) as {
