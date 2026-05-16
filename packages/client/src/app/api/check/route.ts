@@ -1,11 +1,28 @@
 import { NextResponse } from "next/server";
 import { checkRequestSchema, runCheck, allProviders } from "@starter/shared";
+import {
+  cacheKey,
+  checkRateLimit,
+  checkResponseCache,
+  getClientIp,
+} from "@/lib/rate-limit-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(req: Request): Promise<Response> {
+  const rl = checkRateLimit(getClientIp(req));
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "rate_limited", retryAfterSeconds: rl.retryAfterSeconds },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rl.retryAfterSeconds) },
+      },
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -25,8 +42,20 @@ export async function POST(req: Request): Promise<Response> {
     return streamCheck(parsed.data);
   }
 
+  const key = cacheKey({
+    query: parsed.data.query,
+    categories: parsed.data.categories,
+    providers: parsed.data.providers,
+    excludeProviders: parsed.data.excludeProviders,
+  });
+  const cached = checkResponseCache.get(key);
+  if (cached !== undefined) {
+    return NextResponse.json(cached, { headers: { "x-cache": "HIT" } });
+  }
+
   const summary = await runCheck(parsed.data);
-  return NextResponse.json(summary);
+  checkResponseCache.set(key, summary);
+  return NextResponse.json(summary, { headers: { "x-cache": "MISS" } });
 }
 
 function streamCheck(req: Parameters<typeof runCheck>[0]): Response {
