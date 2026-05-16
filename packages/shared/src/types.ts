@@ -1,34 +1,66 @@
-/** Metadata about a room member. */
-export type RoomMember = {
-  userId: string;
-  displayName: string;
-  joinedAt: string;
-};
+export type ProviderCategory =
+  | "trademark"
+  | "domain"
+  | "social"
+  | "appstore"
+  | "package"
+  | "code";
 
-/** Possible statuses for an Item. */
-export type ItemStatus = "draft" | "published" | "archived";
+export type CheckStatus =
+  | "available"
+  | "taken"
+  | "partial"
+  | "manual_verify"
+  | "unknown"
+  | "error";
 
-/** User theme preference. */
-export type ThemePreference = "light" | "dark" | "system";
-
-/** Shape of a user profile (extends better-auth's User). */
-export type UserProfile = {
-  userId: string;
-  avatarUrl?: string;
-  bio?: string;
-  preferences: {
-    theme: ThemePreference;
-    notifications: boolean;
-  };
-};
-
-/** Shape of an Item (example CRUD entity). */
-export type Item = {
-  id: string;
+export type Evidence = {
   title: string;
+  url: string;
+  snippet?: string;
+};
+
+export type ProviderCheckOutput = {
+  status: CheckStatus;
+  verifyUrl?: string;
+  evidence?: Evidence[];
+  detail?: string;
+  error?: string;
+};
+
+export type ProviderResult = ProviderCheckOutput & {
+  providerId: string;
+  providerName: string;
+  category: ProviderCategory;
+  query: string;
+  durationMs: number;
+};
+
+export type Provider = {
+  id: string;
+  name: string;
+  category: ProviderCategory;
   description?: string;
-  status: ItemStatus;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
+  check: (query: string, signal?: AbortSignal) => Promise<ProviderCheckOutput>;
+};
+
+export type CheckRequest = {
+  query: string;
+  categories?: ProviderCategory[];
+  providers?: string[];
+  excludeProviders?: string[];
+  timeoutMs?: number;
+  concurrency?: number;
+};
+
+export type Verdict = "likely_available" | "likely_taken" | "mixed";
+
+export type CheckSummary = {
+  query: string;
+  startedAt: string;
+  finishedAt: string;
+  totalMs: number;
+  results: ProviderResult[];
+  rollup: Record<CheckStatus, number>;
+  verdict: Verdict;
 };

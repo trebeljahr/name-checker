@@ -1,0 +1,115 @@
+import type {
+  CheckRequest,
+  CheckStatus,
+  CheckSummary,
+  Provider,
+  ProviderResult,
+  Verdict,
+} from "./types.js";
+import { allProviders } from "./providers/index.js";
+import { safeQuery } from "./normalize.js";
+
+const EMPTY_ROLLUP: Record<CheckStatus, number> = {
+  available: 0,
+  taken: 0,
+  partial: 0,
+  manual_verify: 0,
+  unknown: 0,
+  error: 0,
+};
+
+export function selectProviders(req: CheckRequest): Provider[] {
+  return allProviders.filter((p) => {
+    if (req.providers && !req.providers.includes(p.id)) return false;
+    if (req.excludeProviders && req.excludeProviders.includes(p.id)) return false;
+    if (req.categories && !req.categories.includes(p.category)) return false;
+    return true;
+  });
+}
+
+export async function runCheck(
+  req: CheckRequest,
+  onResult?: (r: ProviderResult) => void,
+): Promise<CheckSummary> {
+  const startedAtDate = new Date();
+  const concurrency = req.concurrency ?? 10;
+  const timeoutMs = req.timeoutMs ?? 12_000;
+  const query = safeQuery(req.query);
+  if (!query) throw new Error("query is required");
+
+  const selected = selectProviders(req);
+  const results: ProviderResult[] = new Array(selected.length);
+  let index = 0;
+
+  async function worker(): Promise<void> {
+    while (true) {
+      const i = index++;
+      if (i >= selected.length) return;
+      const p = selected[i]!;
+      const r = await runOne(p, query, timeoutMs);
+      results[i] = r;
+      onResult?.(r);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, selected.length || 1) }, () => worker()),
+  );
+
+  const finishedAtDate = new Date();
+  const rollup = tally(results);
+  return {
+    query,
+    startedAt: startedAtDate.toISOString(),
+    finishedAt: finishedAtDate.toISOString(),
+    totalMs: finishedAtDate.getTime() - startedAtDate.getTime(),
+    results,
+    rollup,
+    verdict: judge(rollup),
+  };
+}
+
+async function runOne(
+  p: Provider,
+  query: string,
+  timeoutMs: number,
+): Promise<ProviderResult> {
+  const start = Date.now();
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(new Error("provider timeout")), timeoutMs);
+  try {
+    const out = await p.check(query, ctrl.signal);
+    return {
+      providerId: p.id,
+      providerName: p.name,
+      category: p.category,
+      query,
+      durationMs: Date.now() - start,
+      ...out,
+    };
+  } catch (err) {
+    return {
+      providerId: p.id,
+      providerName: p.name,
+      category: p.category,
+      query,
+      durationMs: Date.now() - start,
+      status: "error",
+      error: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function tally(results: ProviderResult[]): Record<CheckStatus, number> {
+  const r: Record<CheckStatus, number> = { ...EMPTY_ROLLUP };
+  for (const x of results) r[x.status]++;
+  return r;
+}
+
+function judge(r: Record<CheckStatus, number>): Verdict {
+  if (r.taken > 0 || r.partial > 0) return "likely_taken";
+  if (r.available > 0 && r.taken === 0 && r.partial === 0) return "likely_available";
+  return "mixed";
+}
