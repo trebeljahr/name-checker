@@ -1,0 +1,78 @@
+{
+  "manifest_version": 3,
+  "name": "name-check: brand passport",
+  "short_name": "name-check",
+  "version": "0.1.0",
+  "description": "Prefill signup forms on X, TikTok, Instagram, Reddit, Twitch, Threads, and LinkedIn with your brand handle.",
+  "permissions": ["storage", "tabs", "scripting"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://www.tiktok.com/*",
+    "https://www.instagram.com/*",
+    "https://www.reddit.com/*",
+    "https://www.twitch.tv/*",
+    "https://www.threads.net/*",
+    "https://www.linkedin.com/*",
+    "http://localhost:*/*",
+    "https://localhost:*/*"
+  ],
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "name-check brand passport"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content/x.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.tiktok.com/*"],
+      "js": ["content/tiktok.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.instagram.com/*"],
+      "js": ["content/instagram.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.reddit.com/*"],
+      "js": ["content/reddit.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.twitch.tv/*"],
+      "js": ["content/twitch.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.threads.net/*"],
+      "js": ["content/threads.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["content/linkedin.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:*/*",
+      "https://localhost:*/*",
+      "https://*.vercel.app/*"
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["popup/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

@@ -15,6 +15,8 @@
     "build:cli": "pnpm --filter @starter/shared run build && pnpm --filter @starter/cli run build",
     "build:mcp": "pnpm --filter @starter/shared run build && pnpm --filter @starter/mcp run build",
     "build:client": "pnpm --filter @starter/shared run build && pnpm --filter @starter/client run build",
+    "build:extension": "pnpm --filter @starter/extension run build",
+    "dev:extension": "pnpm --filter @starter/extension run dev",
     "check": "pnpm --filter @starter/cli start --",
     "mcp": "pnpm --filter @starter/mcp start",
     "test": "pnpm run test:unit && pnpm run test:e2e",

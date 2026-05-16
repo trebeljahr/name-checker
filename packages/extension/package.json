@@ -1,0 +1,25 @@
+{
+  "name": "@starter/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Brand passport browser extension — prefills tier-2 signup forms (X, TikTok, Instagram, Reddit, Twitch, Threads, LinkedIn).",
+  "scripts": {
+    "build": "node --experimental-strip-types scripts/build.ts",
+    "dev": "node --experimental-strip-types scripts/build.ts --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
