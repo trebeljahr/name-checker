@@ -121,6 +121,12 @@ export default function LandingPage(): React.ReactElement {
             Bulk check
           </Link>
           <Link
+            href="/compare"
+            className="hidden text-sm text-muted-foreground hover:text-foreground sm:inline"
+          >
+            Compare
+          </Link>
+          <Link
             href="/pricing"
             className="hidden text-sm text-muted-foreground hover:text-foreground sm:inline"
           >

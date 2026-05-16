@@ -9,10 +9,12 @@ import {
   allProviders,
   batchCheckRequestSchema,
   checkRequestSchema,
+  compareRequestSchema,
   findFreeNamesRequestSchema,
   runCheck,
   runCheckBatch,
   suggestVariants,
+  type CheckStatus,
   type CheckSummary,
   type FreeAnywhereResult,
   type ProviderCategory,
@@ -114,6 +116,50 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           timeoutMs: { type: "number", description: "Per-provider timeout (default 12000)." },
           concurrency: { type: "number", description: "Per-query provider concurrency (default 8)." },
           batchConcurrency: { type: "number", description: "How many queries to run in parallel (default 4)." },
+        },
+        required: ["queries"],
+      },
+    },
+    {
+      name: "compare_names",
+      description:
+        "Compare 2..10 candidate names side by side across all providers. Returns a markdown matrix table (rows = providers, columns = candidates) plus a per-candidate verdict + score and a 'winner' (highest score). Use when an agent needs to pick the best name from a short list of contenders.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          queries: {
+            type: "array",
+            items: { type: "string" },
+            description: "2..10 names to compare.",
+          },
+          categories: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: [
+                "trademark",
+                "domain",
+                "social",
+                "appstore",
+                "package",
+                "code",
+              ],
+            },
+            description: "Limit to these provider categories.",
+          },
+          providers: {
+            type: "array",
+            items: { type: "string" },
+            description: "Explicit provider id allowlist.",
+          },
+          excludeProviders: {
+            type: "array",
+            items: { type: "string" },
+            description: "Provider ids to skip.",
+          },
+          timeoutMs: { type: "number", description: "Per-provider timeout (default 12000)." },
+          concurrency: { type: "number", description: "Per-query provider concurrency (default 8)." },
+          batchConcurrency: { type: "number", description: "Queries-in-flight (default 4)." },
         },
         required: ["queries"],
       },
@@ -258,6 +304,58 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       content: [
         { type: "text", text: markdown },
         { type: "text", text: JSON.stringify(batch, null, 2) },
+      ],
+    };
+  }
+
+  if (req.params.name === "compare_names") {
+    const parsed = compareRequestSchema.safeParse(req.params.arguments ?? {});
+    if (!parsed.success) {
+      return {
+        isError: true,
+        content: [
+          { type: "text", text: `Invalid arguments: ${parsed.error.message}` },
+        ],
+      };
+    }
+    if (parsed.data.queries.length < 2) {
+      return {
+        isError: true,
+        content: [
+          { type: "text", text: "compare_names requires at least 2 queries." },
+        ],
+      };
+    }
+    const batch = await runCheckBatch(parsed.data);
+    const queries = batch.queries;
+    const results = batch.results;
+    let winnerIndex = 0;
+    for (let i = 1; i < results.length; i++) {
+      if (results[i]!.score > results[winnerIndex]!.score) winnerIndex = i;
+    }
+    const markdown = renderCompareMarkdown(
+      queries,
+      results,
+      winnerIndex,
+      batch.totalMs,
+    );
+    return {
+      content: [
+        { type: "text", text: markdown },
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              queries,
+              results,
+              totalMs: batch.totalMs,
+              winner: queries[winnerIndex],
+              scores: results.map((r) => r.score),
+            },
+            null,
+            2,
+          ),
+        },
       ],
     };
   }
@@ -535,6 +633,79 @@ function buildResourceLinks(results: ProviderResult[]): ResourceLinkBlock[] {
     });
   }
   return out;
+}
+
+const STATUS_LABEL: Record<CheckStatus, string> = {
+  available: "available",
+  taken: "TAKEN",
+  partial: "partial",
+  manual_verify: "verify",
+  unknown: "unknown",
+  error: "error",
+};
+
+function renderCompareMarkdown(
+  queries: string[],
+  results: CheckSummary[],
+  winnerIndex: number,
+  totalMs: number,
+): string {
+  const lines: string[] = [];
+  lines.push(`# Compare: ${queries.join(" vs ")}`);
+  lines.push("");
+  lines.push(`_${results.length} candidates · ${totalMs}ms_`);
+  lines.push("");
+
+  const providerOrder: ProviderResult[] = [];
+  const seen = new Set<string>();
+  for (const s of results) {
+    for (const r of s.results) {
+      if (!seen.has(r.providerId)) {
+        seen.add(r.providerId);
+        providerOrder.push(r);
+      }
+    }
+  }
+  const lookup = new Map<string, Map<string, ProviderResult>>();
+  for (const s of results) {
+    const m = new Map<string, ProviderResult>();
+    for (const r of s.results) m.set(r.providerId, r);
+    lookup.set(s.query, m);
+  }
+
+  const header = ["Provider", ...queries];
+  lines.push(`| ${header.join(" | ")} |`);
+  lines.push(`| ${header.map(() => "---").join(" | ")} |`);
+
+  const byCat = new Map<ProviderCategory, ProviderResult[]>();
+  for (const p of providerOrder) {
+    const arr = byCat.get(p.category) ?? [];
+    arr.push(p);
+    byCat.set(p.category, arr);
+  }
+  for (const [cat, items] of byCat) {
+    lines.push(
+      `| **${cat.toUpperCase()}** | ${queries.map(() => "").join(" | ")} |`,
+    );
+    for (const p of items) {
+      const row = [p.providerName];
+      for (const q of queries) {
+        const r = lookup.get(q)?.get(p.providerId);
+        row.push(r ? STATUS_LABEL[r.status] : "—");
+      }
+      lines.push(`| ${row.join(" | ")} |`);
+    }
+  }
+  lines.push("");
+  const verdictLine = results
+    .map((s) => `${s.query}: ${s.verdict} (${s.score})`)
+    .join(" · ");
+  lines.push(`**Verdicts:** ${verdictLine}`);
+  lines.push("");
+  lines.push(
+    `**Winner: ${queries[winnerIndex]}** (highest score: ${results[winnerIndex]!.score}).`,
+  );
+  return lines.join("\n");
 }
 
 function renderMarkdown(results: ProviderResult[], summary: CheckSummary): string {

@@ -48,6 +48,18 @@ export const findFreeNamesRequestSchema = z.object({
   batchConcurrency: z.number().int().min(1).max(20).optional(),
 });
 
+export const MAX_COMPARE_QUERIES = 10;
+
+export const compareRequestSchema = z.object({
+  queries: z.array(z.string().min(1).max(80)).min(1).max(MAX_COMPARE_QUERIES),
+  categories: z.array(providerCategorySchema).optional(),
+  providers: z.array(z.string()).optional(),
+  excludeProviders: z.array(z.string()).optional(),
+  timeoutMs: z.number().int().min(1000).max(60_000).optional(),
+  concurrency: z.number().int().min(1).max(50).optional(),
+  batchConcurrency: z.number().int().min(1).max(10).optional(),
+});
+
 export const checkStatusSchema = z.enum([
   "available",
   "taken",

@@ -226,7 +226,7 @@ export function CheckForm({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {ALL_CATEGORIES.map((c) => {
             const active = categories.includes(c);
             return (
@@ -244,6 +244,17 @@ export function CheckForm({
               </button>
             );
           })}
+          <Link
+            href={
+              query.trim()
+                ? `/compare?names=${encodeURIComponent(query.trim())}`
+                : "/compare"
+            }
+            data-testid="check-compare-link"
+            className="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Compare with another name →
+          </Link>
         </div>
       </form>
 
