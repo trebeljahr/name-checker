@@ -1,0 +1,16 @@
+# Production Docker Compose — deploy as a Coolify Service Stack.
+# Coolify auto-detects ${VAR_NAME} syntax and creates UI fields for each.
+# Do NOT expose ports here — Coolify's Traefik handles external routing.
+
+services:
+  client:
+    image: ${CLIENT_IMAGE:-ghcr.io/OWNER/REPO-client:main}
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL}
+      NEXT_PUBLIC_WS_URL: ${WS_URL:-}
+      NEXT_PUBLIC_OPENPANEL_CLIENT_ID: ${OPENPANEL_CLIENT_ID:-}
+      NEXT_PUBLIC_PLAUSIBLE_DOMAIN: ${PLAUSIBLE_DOMAIN:-}
+      NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL: ${PLAUSIBLE_SCRIPT_URL:-}
+      NEXT_PUBLIC_SENTRY_DSN: ${CLIENT_SENTRY_DSN:-}
+    restart: unless-stopped
+
