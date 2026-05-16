@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   CheckSummary,
   ProviderCategory,
   ProviderResult,
-  Verdict,
 } from "@starter/shared";
-import { CategoryGroup } from "./CheckResults";
+import { ResultsView } from "./CheckResults";
+import { getRecent, pushRecent } from "@/lib/history";
 
 const ALL_CATEGORIES: ProviderCategory[] = [
   "trademark",
@@ -27,29 +27,43 @@ const CATEGORY_LABEL: Record<ProviderCategory, string> = {
   code: "Code",
 };
 
-const VERDICT_STYLE: Record<Verdict, { label: string; cls: string }> = {
-  likely_available: {
-    label: "LIKELY AVAILABLE",
-    cls: "bg-emerald-500/20 text-emerald-300 ring-emerald-500/40",
-  },
-  likely_taken: {
-    label: "LIKELY TAKEN",
-    cls: "bg-rose-500/20 text-rose-300 ring-rose-500/40",
-  },
-  mixed: {
-    label: "MIXED — VERIFY MANUALLY",
-    cls: "bg-amber-500/20 text-amber-300 ring-amber-500/40",
-  },
-};
-
-export function CheckForm(): React.ReactElement {
-  const [query, setQuery] = useState<string>("");
-  const [categories, setCategories] = useState<ProviderCategory[]>(ALL_CATEGORIES);
+export function CheckForm({
+  initialQuery = "",
+  initialResults,
+  initialSummary,
+}: {
+  initialQuery?: string;
+  initialResults?: ProviderResult[];
+  initialSummary?: CheckSummary | null;
+} = {}): React.ReactElement {
+  const [query, setQuery] = useState<string>(initialQuery);
+  const [categories, setCategories] =
+    useState<ProviderCategory[]>(ALL_CATEGORIES);
   const [running, setRunning] = useState<boolean>(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [results, setResults] = useState<ProviderResult[]>([]);
-  const [summary, setSummary] = useState<CheckSummary | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [results, setResults] = useState<ProviderResult[]>(initialResults ?? []);
+  const [summary, setSummary] = useState<CheckSummary | null>(
+    initialSummary ?? null,
+  );
   const [error, setError] = useState<string | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+  const [recentOpen, setRecentOpen] = useState<boolean>(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setRecent(getRecent());
+  }, []);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent): void {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setRecentOpen(false);
+    }
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, []);
 
   function toggleCategory(c: ProviderCategory): void {
     setCategories((prev) =>
@@ -57,25 +71,34 @@ export function CheckForm(): React.ReactElement {
     );
   }
 
-  async function submit(e: React.FormEvent): Promise<void> {
-    e.preventDefault();
-    if (!query.trim() || running) return;
+  async function run(q: string): Promise<void> {
+    const trimmed = q.trim();
+    if (!trimmed || running) return;
     setRunning(true);
     setResults([]);
     setSummary(null);
     setError(null);
     setProgress(null);
+    setRecentOpen(false);
 
     try {
       const res = await fetch("/api/check?stream=1", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query: query.trim(), categories }),
+        body: JSON.stringify({ query: trimmed, categories }),
       });
       if (!res.ok || !res.body) {
         const text = await res.text();
         throw new Error(`server responded ${res.status}: ${text.slice(0, 200)}`);
       }
+      window.history.replaceState(
+        null,
+        "",
+        `/check/${encodeURIComponent(trimmed)}${window.location.hash}`,
+      );
+      pushRecent(trimmed);
+      setRecent(getRecent());
+
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
@@ -107,37 +130,62 @@ export function CheckForm(): React.ReactElement {
     }
   }
 
-  const grouped = groupByCategory(results);
+  async function submit(e: React.FormEvent): Promise<void> {
+    e.preventDefault();
+    await run(query);
+  }
+
+  function pickRecent(q: string): void {
+    setQuery(q);
+    setRecentOpen(false);
+    void run(q);
+  }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 text-zinc-100">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">name-check</h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          Check name availability across trademarks, domains, social handles, app stores, package registries, and code hosts.
-        </p>
-      </header>
-
+    <div className="mx-auto max-w-5xl px-4 py-10 text-foreground">
       <form onSubmit={submit} className="mb-6 flex flex-col gap-3">
-        <div className="flex gap-2">
+        <div className="relative flex gap-2" ref={wrapRef}>
           <input
             data-testid="check-input"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setRecentOpen(true)}
             placeholder="kairosprotocol"
             autoFocus
             disabled={running}
-            className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-base font-mono placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none disabled:opacity-50"
+            className="flex-1 rounded-md border border-input bg-card px-3 py-2 text-base font-mono placeholder:text-muted-foreground/60 focus:border-ring focus:outline-none disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={running || !query.trim()}
             data-testid="check-submit"
-            className="rounded-md bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {running ? "Checking…" : "Check"}
           </button>
+          {recentOpen && recent.length > 0 && (
+            <ul
+              data-testid="recent-list"
+              className="absolute left-0 top-full z-10 mt-1 w-full max-w-lg overflow-hidden rounded-md border border-border bg-card shadow-lg"
+            >
+              <li className="px-3 py-1 text-xs uppercase tracking-wider text-muted-foreground">
+                Recent
+              </li>
+              {recent.map((r) => (
+                <li key={r}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => pickRecent(r)}
+                    className="block w-full px-3 py-1.5 text-left font-mono text-sm text-foreground hover:bg-accent"
+                  >
+                    {r}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -150,8 +198,8 @@ export function CheckForm(): React.ReactElement {
                 onClick={() => toggleCategory(c)}
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                   active
-                    ? "border-zinc-300 bg-zinc-100 text-zinc-900"
-                    : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500"
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-card text-muted-foreground hover:border-foreground/50"
                 }`}
               >
                 {CATEGORY_LABEL[c]}
@@ -162,80 +210,28 @@ export function CheckForm(): React.ReactElement {
       </form>
 
       {error && (
-        <div className="mb-4 rounded-md border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-300">
+        <div className="mb-4 rounded-md border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
           {error}
         </div>
       )}
 
-      {(running || results.length > 0) && (
-        <div className="mb-4 flex items-center justify-between gap-4 rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
-          <div className="text-sm text-zinc-300">
-            {running ? (
-              <span>
-                Checking <span className="font-mono">{query}</span>… {results.length} done
-              </span>
-            ) : summary ? (
-              <span>
-                Done. <span className="font-mono">{summary.totalMs}ms</span> · {results.length} providers
-              </span>
-            ) : null}
-          </div>
-          {summary && (
-            <VerdictBadge
-              verdict={summary.verdict}
-              rollup={summary.rollup}
-              data-testid="verdict"
-            />
-          )}
-        </div>
-      )}
-
       {progress && running && (
-        <div className="mb-4 h-1 w-full overflow-hidden rounded bg-zinc-800">
-          <div className="h-full animate-pulse rounded bg-zinc-500" style={{ width: "60%" }} />
+        <div className="mb-4 h-1 w-full overflow-hidden rounded bg-muted">
+          <div
+            className="h-full animate-pulse rounded bg-muted-foreground/60"
+            style={{ width: "60%" }}
+          />
         </div>
       )}
 
-      <div className="space-y-4">
-        {ALL_CATEGORIES.filter((c) => grouped.get(c)?.length).map((c) => (
-          <CategoryGroup key={c} category={c} results={grouped.get(c)!} />
-        ))}
-      </div>
+      <ResultsView
+        results={results}
+        summary={summary}
+        running={running}
+        query={query}
+      />
     </div>
   );
-}
-
-function VerdictBadge({
-  verdict,
-  rollup,
-}: {
-  verdict: Verdict;
-  rollup: CheckSummary["rollup"];
-}): React.ReactElement {
-  const s = VERDICT_STYLE[verdict];
-  return (
-    <div className="flex items-center gap-3">
-      <div className="font-mono text-xs text-zinc-500">
-        avail:{rollup.available} · taken:{rollup.taken} · part:{rollup.partial} · check:{rollup.manual_verify} · err:{rollup.error}
-      </div>
-      <span
-        data-testid="verdict-badge"
-        className={`rounded px-2 py-1 text-xs font-bold ring-1 ring-inset ${s.cls}`}
-      >
-        {s.label}
-      </span>
-    </div>
-  );
-}
-
-function groupByCategory(rs: ProviderResult[]): Map<ProviderCategory, ProviderResult[]> {
-  const m = new Map<ProviderCategory, ProviderResult[]>();
-  for (const r of rs) {
-    const arr = m.get(r.category) ?? [];
-    arr.push(r);
-    m.set(r.category, arr);
-  }
-  return m;
 }
 
 function parseSseBlock(block: string): { event: string; data: unknown } | null {

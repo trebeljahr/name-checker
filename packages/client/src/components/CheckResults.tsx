@@ -1,18 +1,55 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import type {
   CheckStatus,
+  CheckSummary,
   ProviderCategory,
   ProviderResult,
+  Verdict,
 } from "@starter/shared";
+import { TrademarkDisclaimer } from "./Disclaimer";
 
 const STATUS_STYLE: Record<CheckStatus, { label: string; cls: string }> = {
-  available: { label: "AVAILABLE", cls: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30" },
-  taken: { label: "TAKEN", cls: "bg-rose-500/15 text-rose-300 ring-rose-500/30" },
-  partial: { label: "PARTIAL", cls: "bg-amber-500/15 text-amber-300 ring-amber-500/30" },
-  manual_verify: { label: "VERIFY", cls: "bg-sky-500/15 text-sky-300 ring-sky-500/30" },
-  unknown: { label: "UNKNOWN", cls: "bg-zinc-500/15 text-zinc-400 ring-zinc-500/30" },
-  error: { label: "ERROR", cls: "bg-fuchsia-500/15 text-fuchsia-300 ring-fuchsia-500/30" },
+  available: {
+    label: "AVAILABLE",
+    cls: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300",
+  },
+  taken: {
+    label: "TAKEN",
+    cls: "bg-rose-500/10 text-rose-700 ring-rose-500/30 dark:text-rose-300",
+  },
+  partial: {
+    label: "PARTIAL",
+    cls: "bg-amber-500/10 text-amber-700 ring-amber-500/30 dark:text-amber-300",
+  },
+  manual_verify: {
+    label: "VERIFY",
+    cls: "bg-sky-500/10 text-sky-700 ring-sky-500/30 dark:text-sky-300",
+  },
+  unknown: {
+    label: "UNKNOWN",
+    cls: "bg-zinc-500/10 text-zinc-600 ring-zinc-500/30 dark:text-zinc-400",
+  },
+  error: {
+    label: "ERROR",
+    cls: "bg-fuchsia-500/10 text-fuchsia-700 ring-fuchsia-500/30 dark:text-fuchsia-300",
+  },
+};
+
+const VERDICT_STYLE: Record<Verdict, { label: string; cls: string }> = {
+  likely_available: {
+    label: "LIKELY AVAILABLE",
+    cls: "bg-emerald-500/15 text-emerald-700 ring-emerald-500/40 dark:text-emerald-300",
+  },
+  likely_taken: {
+    label: "LIKELY TAKEN",
+    cls: "bg-rose-500/15 text-rose-700 ring-rose-500/40 dark:text-rose-300",
+  },
+  mixed: {
+    label: "MIXED — VERIFY MANUALLY",
+    cls: "bg-amber-500/15 text-amber-700 ring-amber-500/40 dark:text-amber-300",
+  },
 };
 
 const CATEGORY_LABEL: Record<ProviderCategory, string> = {
@@ -22,6 +59,33 @@ const CATEGORY_LABEL: Record<ProviderCategory, string> = {
   appstore: "App stores",
   package: "Package registries",
   code: "Code hosts",
+};
+
+const CATEGORY_ORDER: ProviderCategory[] = [
+  "trademark",
+  "domain",
+  "social",
+  "appstore",
+  "package",
+  "code",
+];
+
+const ALL_STATUSES: CheckStatus[] = [
+  "available",
+  "taken",
+  "partial",
+  "manual_verify",
+  "unknown",
+  "error",
+];
+
+const STATUS_PRIORITY: Record<CheckStatus, number> = {
+  taken: 0,
+  partial: 1,
+  manual_verify: 2,
+  unknown: 3,
+  available: 4,
+  error: 5,
 };
 
 export function StatusBadge({ status }: { status: CheckStatus }): React.ReactElement {
@@ -35,27 +99,51 @@ export function StatusBadge({ status }: { status: CheckStatus }): React.ReactEle
   );
 }
 
+export function VerdictBadge({
+  verdict,
+  rollup,
+}: {
+  verdict: Verdict;
+  rollup: CheckSummary["rollup"];
+}): React.ReactElement {
+  const s = VERDICT_STYLE[verdict];
+  return (
+    <div className="flex items-center gap-3">
+      <div className="font-mono text-xs text-muted-foreground">
+        avail:{rollup.available} · taken:{rollup.taken} · part:{rollup.partial} ·
+        check:{rollup.manual_verify} · err:{rollup.error}
+      </div>
+      <span
+        data-testid="verdict-badge"
+        className={`rounded px-2 py-1 text-xs font-bold ring-1 ring-inset ${s.cls}`}
+      >
+        {s.label}
+      </span>
+    </div>
+  );
+}
+
 export function ProviderRow({ r }: { r: ProviderResult }): React.ReactElement {
   return (
-    <li className="flex flex-col gap-1 border-b border-zinc-800 px-4 py-3 last:border-0 md:flex-row md:items-start md:gap-4">
+    <li className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-0 md:flex-row md:items-start md:gap-4">
       <div className="md:w-24 shrink-0">
         <StatusBadge status={r.status} />
       </div>
       <div className="md:w-56 shrink-0">
-        <div className="font-medium text-zinc-100">{r.providerName}</div>
-        <div className="font-mono text-xs text-zinc-500">{r.providerId}</div>
+        <div className="font-medium text-foreground">{r.providerName}</div>
+        <div className="font-mono text-xs text-muted-foreground">{r.providerId}</div>
       </div>
-      <div className="flex-1 text-sm text-zinc-400">
+      <div className="flex-1 text-sm text-muted-foreground">
         {r.detail ?? r.error ?? "—"}
         {r.evidence && r.evidence.length > 0 && (
-          <ul className="mt-1 list-disc pl-4 text-xs text-zinc-500">
+          <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
             {r.evidence.slice(0, 3).map((e, i) => (
               <li key={i}>
                 <a
                   href={e.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                  className="underline-offset-2 hover:text-foreground hover:underline"
                 >
                   {e.title}
                 </a>
@@ -70,15 +158,23 @@ export function ProviderRow({ r }: { r: ProviderResult }): React.ReactElement {
             href={r.verifyUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-block text-xs text-sky-400 underline-offset-2 hover:underline"
+            className="inline-block text-xs text-sky-600 underline-offset-2 hover:underline dark:text-sky-400"
           >
             verify ↗
           </a>
         ) : null}
-        <div className="font-mono text-xs text-zinc-600">{r.durationMs}ms</div>
+        <div className="font-mono text-xs text-muted-foreground/70">
+          {r.durationMs}ms
+        </div>
       </div>
     </li>
   );
+}
+
+function sortByStatus(rs: ProviderResult[]): ProviderResult[] {
+  return rs
+    .slice()
+    .sort((a, b) => STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status]);
 }
 
 export function CategoryGroup({
@@ -88,19 +184,158 @@ export function CategoryGroup({
   category: ProviderCategory;
   results: ProviderResult[];
 }): React.ReactElement {
+  const sorted = useMemo(() => sortByStatus(results), [results]);
   return (
-    <section className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/50">
-      <header className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/60 px-4 py-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
+    <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <header className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
           {CATEGORY_LABEL[category]}
         </h2>
-        <span className="font-mono text-xs text-zinc-500">{results.length}</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {results.length}
+        </span>
       </header>
+      {category === "trademark" && <TrademarkDisclaimer />}
       <ul>
-        {results.map((r) => (
+        {sorted.map((r) => (
           <ProviderRow key={r.providerId} r={r} />
         ))}
       </ul>
     </section>
+  );
+}
+
+function parseHideHash(hash: string): Set<CheckStatus> {
+  const out = new Set<CheckStatus>();
+  if (!hash) return out;
+  const part = hash
+    .replace(/^#/, "")
+    .split("&")
+    .find((s) => s.startsWith("hide="));
+  if (!part) return out;
+  let raw: string;
+  try {
+    raw = decodeURIComponent(part.slice(5));
+  } catch {
+    return out;
+  }
+  for (const tok of raw.split(",")) {
+    if ((ALL_STATUSES as string[]).includes(tok)) out.add(tok as CheckStatus);
+  }
+  return out;
+}
+
+function writeHideHash(hidden: Set<CheckStatus>): void {
+  if (typeof window === "undefined") return;
+  const list = ALL_STATUSES.filter((s) => hidden.has(s));
+  const next = list.length ? `#hide=${encodeURIComponent(list.join(","))}` : "";
+  const target = `${window.location.pathname}${window.location.search}${next}`;
+  if (window.location.hash !== next) {
+    window.history.replaceState(null, "", target);
+  }
+}
+
+export function ResultsView({
+  results,
+  summary,
+  running,
+  query,
+}: {
+  results: ProviderResult[];
+  summary: CheckSummary | null;
+  running: boolean;
+  query: string;
+}): React.ReactElement {
+  const [hidden, setHidden] = useState<Set<CheckStatus>>(new Set());
+  const [hydrated, setHydrated] = useState<boolean>(false);
+
+  useEffect(() => {
+    setHidden(parseHideHash(window.location.hash));
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) writeHideHash(hidden);
+  }, [hidden, hydrated]);
+
+  function toggle(s: CheckStatus): void {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  }
+
+  const counts: Record<CheckStatus, number> = {
+    available: 0,
+    taken: 0,
+    partial: 0,
+    manual_verify: 0,
+    unknown: 0,
+    error: 0,
+  };
+  for (const r of results) counts[r.status]++;
+
+  const visible = results.filter((r) => !hidden.has(r.status));
+  const grouped = new Map<ProviderCategory, ProviderResult[]>();
+  for (const r of visible) {
+    const arr = grouped.get(r.category) ?? [];
+    arr.push(r);
+    grouped.set(r.category, arr);
+  }
+
+  return (
+    <div className="space-y-4">
+      {(running || results.length > 0) && (
+        <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-card/60 p-3">
+          <div className="text-sm text-foreground">
+            {running ? (
+              <span>
+                Checking <span className="font-mono">{query}</span>…{" "}
+                {results.length} done
+              </span>
+            ) : summary ? (
+              <span>
+                Done. <span className="font-mono">{summary.totalMs}ms</span> ·{" "}
+                {results.length} providers
+              </span>
+            ) : null}
+          </div>
+          {summary && (
+            <VerdictBadge verdict={summary.verdict} rollup={summary.rollup} />
+          )}
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <div className="flex flex-wrap gap-2" data-testid="status-filter">
+          {ALL_STATUSES.map((s) => {
+            const active = !hidden.has(s);
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => toggle(s)}
+                data-testid={`filter-${s}`}
+                aria-pressed={active}
+                className={`rounded-full border px-3 py-1 text-xs font-mono transition-colors ${
+                  active
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-card text-muted-foreground hover:border-foreground/50"
+                }`}
+              >
+                {STATUS_STYLE[s].label}{" "}
+                <span className="opacity-60">{counts[s]}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {CATEGORY_ORDER.filter((c) => grouped.get(c)?.length).map((c) => (
+        <CategoryGroup key={c} category={c} results={grouped.get(c)!} />
+      ))}
+    </div>
   );
 }
