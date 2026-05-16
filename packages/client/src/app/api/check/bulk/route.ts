@@ -3,16 +3,12 @@ import {
   bulkCheckRequestSchema,
   MAX_BULK_QUERIES,
   runCheck,
+  getCache,
   type CheckSummary,
   type ProviderCategory,
   type ProviderResult,
 } from "@starter/shared";
-import {
-  cacheKey,
-  checkRateLimit,
-  checkResponseCache,
-  getClientIp,
-} from "@/lib/rate-limit-cache";
+import { cacheKey, checkRateLimit, getClientIp } from "@/lib/rate-limit-cache";
 import { enforceBulkLimits, recordRun, requirePlan } from "@/lib/plan";
 
 export const runtime = "nodejs";
@@ -20,6 +16,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const MAX_BULK = MAX_BULK_QUERIES;
+const BULK_TTL_SECONDS = 10 * 60;
 
 type BulkRequest = {
   queries: string[];
@@ -106,14 +103,15 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 async function runOne(query: string, req: BulkRequest): Promise<CheckSummary> {
-  const key = cacheKey({
+  const cache = getCache();
+  const key = `check:${cacheKey({
     query,
     categories: req.categories,
     providers: req.providers,
     excludeProviders: req.excludeProviders,
-  });
-  const cached = checkResponseCache.get(key);
-  if (cached !== undefined) return cached as CheckSummary;
+  })}`;
+  const cached = await cache.get<CheckSummary>(key);
+  if (cached !== null) return cached;
   const summary = await runCheck({
     query,
     categories: req.categories,
@@ -122,7 +120,7 @@ async function runOne(query: string, req: BulkRequest): Promise<CheckSummary> {
     timeoutMs: req.timeoutMs,
     concurrency: req.concurrency,
   });
-  checkResponseCache.set(key, summary);
+  await cache.set(key, summary, BULK_TTL_SECONDS);
   return summary;
 }
 
@@ -136,18 +134,19 @@ function streamBulk(req: BulkRequest, queries: string[]): Response {
         );
       };
       const startedAt = Date.now();
+      const cache = getCache();
       try {
         send("batch_start", { count: queries.length, queries });
         for (const q of queries) {
           send("query_start", { query: q });
-          const key = cacheKey({
+          const key = `check:${cacheKey({
             query: q,
             categories: req.categories,
             providers: req.providers,
             excludeProviders: req.excludeProviders,
-          });
-          const cached = checkResponseCache.get(key) as CheckSummary | undefined;
-          if (cached !== undefined) {
+          })}`;
+          const cached = await cache.get<CheckSummary>(key);
+          if (cached !== null) {
             for (const r of cached.results) send("result", r);
             send("query_done", cached);
             continue;
@@ -163,7 +162,7 @@ function streamBulk(req: BulkRequest, queries: string[]): Response {
             },
             (r: ProviderResult) => send("result", r),
           );
-          checkResponseCache.set(key, summary);
+          await cache.set(key, summary, BULK_TTL_SECONDS);
           send("query_done", summary);
         }
         send("done", { totalMs: Date.now() - startedAt, count: queries.length });

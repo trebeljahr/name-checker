@@ -1,7 +1,5 @@
 const DEFAULT_LIMIT = 30;
 const WINDOW_MS = 60 * 60 * 1000;
-const CACHE_MAX = 200;
-const CACHE_TTL_MS = 10 * 60 * 1000;
 
 type Bucket = { count: number; resetAt: number };
 
@@ -39,41 +37,6 @@ export function getClientIp(req: Request): string {
   if (fwd) return fwd.split(",")[0].trim();
   return req.headers.get("x-real-ip") ?? "unknown";
 }
-
-type CacheEntry<V> = { value: V; expiresAt: number };
-
-class LruCache<V> {
-  private readonly store = new Map<string, CacheEntry<V>>();
-
-  constructor(
-    private readonly max: number,
-    private readonly ttlMs: number,
-  ) {}
-
-  get(key: string): V | undefined {
-    const entry = this.store.get(key);
-    if (!entry) return undefined;
-    if (entry.expiresAt <= Date.now()) {
-      this.store.delete(key);
-      return undefined;
-    }
-    this.store.delete(key);
-    this.store.set(key, entry);
-    return entry.value;
-  }
-
-  set(key: string, value: V): void {
-    if (this.store.has(key)) this.store.delete(key);
-    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs });
-    while (this.store.size > this.max) {
-      const oldest = this.store.keys().next().value;
-      if (oldest === undefined) break;
-      this.store.delete(oldest);
-    }
-  }
-}
-
-export const checkResponseCache = new LruCache<unknown>(CACHE_MAX, CACHE_TTL_MS);
 
 export function cacheKey(input: unknown): string {
   return JSON.stringify(input);

@@ -17,3 +17,5 @@ export type {
 export { PASSPORT_PLATFORMS, PLATFORM_LABEL } from "./passport/types.js";
 export { scoreSummary } from "./scoring.js";
 export type { ScoreResult } from "./scoring.js";
+export { getCache, _resetCacheForTests } from "./cache.js";
+export type { Cache } from "./cache.js";

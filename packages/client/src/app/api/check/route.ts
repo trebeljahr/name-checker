@@ -1,15 +1,28 @@
 import { NextResponse } from "next/server";
-import { checkRequestSchema, runCheck, allProviders } from "@starter/shared";
 import {
-  cacheKey,
-  checkRateLimit,
-  checkResponseCache,
-  getClientIp,
-} from "@/lib/rate-limit-cache";
+  checkRequestSchema,
+  runCheck,
+  allProviders,
+  getCache,
+} from "@starter/shared";
+import { cacheKey, checkRateLimit, getClientIp } from "@/lib/rate-limit-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+const POST_TTL_SECONDS = 10 * 60;
+const GET_TTL_SECONDS = 60 * 60;
+const PROVIDERS_CACHE_KEY = "providers:list:v1";
+
+type ProvidersPayload = {
+  providers: Array<{
+    id: string;
+    name: string;
+    category: string;
+    description: string | null;
+  }>;
+};
 
 export async function POST(req: Request): Promise<Response> {
   const rl = checkRateLimit(getClientIp(req));
@@ -42,19 +55,20 @@ export async function POST(req: Request): Promise<Response> {
     return streamCheck(parsed.data);
   }
 
+  const cache = getCache();
   const key = cacheKey({
     query: parsed.data.query,
     categories: parsed.data.categories,
     providers: parsed.data.providers,
     excludeProviders: parsed.data.excludeProviders,
   });
-  const cached = checkResponseCache.get(key);
-  if (cached !== undefined) {
+  const cached = await cache.get<unknown>(`check:${key}`);
+  if (cached !== null) {
     return NextResponse.json(cached, { headers: { "x-cache": "HIT" } });
   }
 
   const summary = await runCheck(parsed.data);
-  checkResponseCache.set(key, summary);
+  await cache.set(`check:${key}`, summary, POST_TTL_SECONDS);
   return NextResponse.json(summary, { headers: { "x-cache": "MISS" } });
 }
 
@@ -90,12 +104,19 @@ function streamCheck(req: Parameters<typeof runCheck>[0]): Response {
 }
 
 export async function GET(): Promise<Response> {
-  return NextResponse.json({
+  const cache = getCache();
+  const cached = await cache.get<ProvidersPayload>(PROVIDERS_CACHE_KEY);
+  if (cached !== null) {
+    return NextResponse.json(cached, { headers: { "x-cache": "HIT" } });
+  }
+  const payload: ProvidersPayload = {
     providers: allProviders.map((p) => ({
       id: p.id,
       name: p.name,
       category: p.category,
       description: p.description ?? null,
     })),
-  });
+  };
+  await cache.set(PROVIDERS_CACHE_KEY, payload, GET_TTL_SECONDS);
+  return NextResponse.json(payload, { headers: { "x-cache": "MISS" } });
 }
