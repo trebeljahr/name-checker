@@ -1,6 +1,6 @@
 import type { Provider, ProviderCheckOutput } from "../types.js";
 import { encode, fetchWithTimeout } from "../http.js";
-import { handle } from "../normalize.js";
+import { domainLabel, handle } from "../normalize.js";
 
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36";
@@ -12,7 +12,6 @@ type ProbeOpts = {
   method?: "GET" | "HEAD";
   takenStatuses?: number[];
   availableStatuses?: number[];
-  unreliable?: boolean;
   detailTaken: string;
   detailAvailable: string;
   browserHeaders?: boolean;
@@ -33,13 +32,6 @@ async function probe(opts: ProbeOpts): Promise<ProviderCheckOutput> {
       redirect: "manual",
     });
     if (taken.includes(res.status)) {
-      if (opts.unreliable) {
-        return {
-          status: "manual_verify",
-          verifyUrl: opts.verifyUrl,
-          detail: `Platform returned ${res.status} but blocks reliable checks; verify by hand.`,
-        };
-      }
       return {
         status: "taken",
         verifyUrl: opts.verifyUrl,
@@ -169,21 +161,17 @@ const x: Provider = {
   id: "x",
   name: "X / Twitter handle",
   category: "social",
-  description: "X.com / Twitter handle (often unreliable due to anti-bot).",
-  async check(query, signal): Promise<ProviderCheckOutput> {
+  description: "X.com / Twitter handle. Anon endpoints are rate-limited and blank-bodied.",
+  async check(query): Promise<ProviderCheckOutput> {
     const h = handle(query);
     if (!h) return { status: "unknown", detail: "No valid handle chars." };
     const verifyUrl = `https://x.com/${h}`;
-    return probe({
-      url: verifyUrl,
+    return {
+      status: "manual_verify",
       verifyUrl,
-      signal,
-      method: "GET",
-      browserHeaders: true,
-      unreliable: true,
-      detailTaken: "x.com responded but X often returns 200 even for missing handles.",
-      detailAvailable: "x.com returned 404.",
-    });
+      detail:
+        "X blocks anonymous handle lookups (syndication endpoint returns empty body, profile pages 200 for any input). Verify in a browser.",
+    };
   },
 };
 
@@ -195,16 +183,48 @@ const tiktok: Provider = {
     const h = handle(query);
     if (!h) return { status: "unknown", detail: "No valid handle chars." };
     const verifyUrl = `https://www.tiktok.com/@${h}`;
-    return probe({
-      url: verifyUrl,
-      verifyUrl,
-      signal,
-      method: "GET",
-      browserHeaders: true,
-      unreliable: true,
-      detailTaken: "TikTok responded; manual check recommended.",
-      detailAvailable: "TikTok returned 404.",
-    });
+    try {
+      const res = await fetchWithTimeout(verifyUrl, {
+        signal,
+        timeoutMs: 8000,
+        headers: { "user-agent": BROWSER_UA, accept: "text/html,*/*" },
+      });
+      if (res.status === 404) {
+        return { status: "available", verifyUrl, detail: `@${h} returns 404 on TikTok.` };
+      }
+      if (res.status === 200) {
+        const body = await res.text();
+        const statusMatch = body.match(/"statusCode"\s*:\s*(\d+)/);
+        const code = statusMatch ? Number(statusMatch[1]) : null;
+        if (code === 0) {
+          return {
+            status: "taken",
+            verifyUrl,
+            detail: `@${h} exists on TikTok (SIGI statusCode=0).`,
+            evidence: [{ title: verifyUrl, url: verifyUrl }],
+          };
+        }
+        if (code === 10221 || code === 10222) {
+          return {
+            status: "available",
+            verifyUrl,
+            detail: `@${h} not found on TikTok (statusCode=${code}).`,
+          };
+        }
+        return {
+          status: "manual_verify",
+          verifyUrl,
+          detail: `TikTok HTML had no decodable statusCode${code !== null ? ` (got ${code})` : ""}.`,
+        };
+      }
+      return { status: "manual_verify", verifyUrl, detail: `TikTok HTTP ${res.status}.` };
+    } catch (err) {
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `TikTok probe failed (${err instanceof Error ? err.message : "unknown"}).`,
+      };
+    }
   },
 };
 
@@ -257,16 +277,46 @@ const twitch: Provider = {
     const h = handle(query);
     if (!h) return { status: "unknown", detail: "No valid handle chars." };
     const verifyUrl = `https://www.twitch.tv/${h}`;
-    return probe({
-      url: verifyUrl,
-      verifyUrl,
-      signal,
-      method: "GET",
-      browserHeaders: true,
-      unreliable: true,
-      detailTaken: "Twitch returned 200; manual confirm recommended.",
-      detailAvailable: "Twitch returned 404.",
-    });
+    try {
+      const res = await fetchWithTimeout("https://gql.twitch.tv/gql", {
+        method: "POST",
+        signal,
+        timeoutMs: 8000,
+        headers: {
+          "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          query: `{ user(login: "${h.replace(/"/g, "")}") { id displayName } }`,
+        }),
+      });
+      if (res.status !== 200) {
+        return { status: "manual_verify", verifyUrl, detail: `Twitch GQL HTTP ${res.status}.` };
+      }
+      const data = (await res.json().catch(() => null)) as
+        | { data?: { user?: { id?: string; displayName?: string } | null } }
+        | null;
+      const user = data?.data?.user;
+      if (user && user.id) {
+        return {
+          status: "taken",
+          verifyUrl,
+          detail: `Twitch channel "${user.displayName ?? h}" exists (id ${user.id}).`,
+          evidence: [{ title: verifyUrl, url: verifyUrl }],
+        };
+      }
+      if (data && "data" in data && data.data && user === null) {
+        return { status: "available", verifyUrl, detail: `Twitch /${h} is free.` };
+      }
+      return { status: "manual_verify", verifyUrl, detail: "Twitch GQL returned no user field." };
+    } catch (err) {
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `Twitch GQL probe failed (${err instanceof Error ? err.message : "unknown"}).`,
+      };
+    }
   },
 };
 
@@ -367,16 +417,63 @@ const instagram: Provider = {
     const h = handle(query);
     if (!h) return { status: "unknown", detail: "No valid handle chars." };
     const verifyUrl = `https://www.instagram.com/${h}/`;
-    return probe({
-      url: verifyUrl,
-      verifyUrl,
-      signal,
-      method: "GET",
-      browserHeaders: true,
-      unreliable: true,
-      detailTaken: "Instagram responded; verify manually (login wall hides real status).",
-      detailAvailable: "Instagram returned 404.",
-    });
+    try {
+      const res = await fetchWithTimeout(
+        `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encode(h)}`,
+        {
+          signal,
+          timeoutMs: 8000,
+          headers: {
+            "user-agent": BROWSER_UA,
+            accept: "*/*",
+            "X-IG-App-ID": "936619743392459",
+            "X-ASBD-ID": "129477",
+            "X-Requested-With": "XMLHttpRequest",
+            Referer: verifyUrl,
+            Origin: "https://www.instagram.com",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
+          },
+        },
+      );
+      if (res.status === 404) {
+        return { status: "available", verifyUrl, detail: `@${h} returns 404 on Instagram.` };
+      }
+      if (res.status === 200) {
+        const data = (await res.json().catch(() => null)) as
+          | { data?: { user?: { id?: string; username?: string } | null } }
+          | null;
+        const user = data?.data?.user;
+        if (user && user.id) {
+          return {
+            status: "taken",
+            verifyUrl,
+            detail: `@${user.username ?? h} exists on Instagram (id ${user.id}).`,
+            evidence: [{ title: verifyUrl, url: verifyUrl }],
+          };
+        }
+        return {
+          status: "available",
+          verifyUrl,
+          detail: `Instagram returned 200 with no user payload for @${h}.`,
+        };
+      }
+      if (res.status === 401 || res.status === 403 || res.status === 429) {
+        return {
+          status: "manual_verify",
+          verifyUrl,
+          detail: `Instagram rate-limited or auth-walled the probe (HTTP ${res.status}).`,
+        };
+      }
+      return { status: "manual_verify", verifyUrl, detail: `Instagram HTTP ${res.status}.` };
+    } catch (err) {
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `Instagram probe failed (${err instanceof Error ? err.message : "unknown"}).`,
+      };
+    }
   },
 };
 
@@ -388,16 +485,52 @@ const threads: Provider = {
     const h = handle(query);
     if (!h) return { status: "unknown", detail: "No valid handle chars." };
     const verifyUrl = `https://www.threads.net/@${h}`;
-    return probe({
-      url: verifyUrl,
-      verifyUrl,
-      signal,
-      method: "GET",
-      browserHeaders: true,
-      unreliable: true,
-      detailTaken: "Threads responded; verify manually.",
-      detailAvailable: "Threads returned 404.",
-    });
+    try {
+      const res = await fetchWithTimeout(verifyUrl, {
+        signal,
+        timeoutMs: 8000,
+        headers: { "user-agent": BROWSER_UA, accept: "text/html,*/*" },
+      });
+      if (res.status === 404) {
+        return { status: "available", verifyUrl, detail: `@${h} returns 404 on Threads.` };
+      }
+      if (res.status !== 200) {
+        return { status: "manual_verify", verifyUrl, detail: `Threads HTTP ${res.status}.` };
+      }
+      const body = await res.text();
+      const ogUrl = body.match(/property="og:url"\s+content="([^"]+)"/)?.[1] ?? "";
+      const ogTitle = body.match(/property="og:title"\s+content="([^"]+)"/)?.[1] ?? "";
+      const handleLower = h.toLowerCase();
+      const hitsHandle =
+        ogUrl.toLowerCase().includes(`/@${handleLower}`) ||
+        ogUrl.toLowerCase().includes(`/%40${handleLower}`) ||
+        ogTitle.toLowerCase().includes(`@${handleLower}`) ||
+        ogTitle.toLowerCase().includes(`&#064;${handleLower}`);
+      const isLoginShell =
+        ogUrl.endsWith("/login") || /Threads\s*•?\s*Log in/i.test(ogTitle);
+      if (hitsHandle) {
+        return {
+          status: "taken",
+          verifyUrl,
+          detail: `@${h} exists on Threads (og:url ${ogUrl || "matched title"}).`,
+          evidence: [{ title: verifyUrl, url: verifyUrl }],
+        };
+      }
+      if (isLoginShell) {
+        return { status: "available", verifyUrl, detail: `@${h} redirects to Threads login.` };
+      }
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: "Threads HTML had no decodable og:title/og:url.",
+      };
+    } catch (err) {
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `Threads probe failed (${err instanceof Error ? err.message : "unknown"}).`,
+      };
+    }
   },
 };
 
@@ -530,16 +663,39 @@ const steam: Provider = {
     const h = handle(query);
     if (!h) return { status: "unknown", detail: "No valid handle chars." };
     const verifyUrl = `https://steamcommunity.com/id/${h}`;
-    return probe({
-      url: verifyUrl,
-      verifyUrl,
-      signal,
-      method: "GET",
-      browserHeaders: true,
-      unreliable: true,
-      detailTaken: "Steam returned 200; check page content for 'no user'.",
-      detailAvailable: "Steam returned 404.",
-    });
+    try {
+      const res = await fetchWithTimeout(`${verifyUrl}?xml=1`, {
+        signal,
+        timeoutMs: 8000,
+        headers: { "user-agent": BROWSER_UA, accept: "application/xml,text/xml,*/*" },
+      });
+      if (res.status === 404) {
+        return { status: "available", verifyUrl, detail: `Steam /id/${h} returns 404.` };
+      }
+      if (res.status !== 200) {
+        return { status: "manual_verify", verifyUrl, detail: `Steam HTTP ${res.status}.` };
+      }
+      const body = await res.text();
+      if (/<error>/i.test(body) || /could not be found/i.test(body)) {
+        return { status: "available", verifyUrl, detail: `Steam /id/${h} has no profile.` };
+      }
+      const steamId = body.match(/<steamID64>(\d+)<\/steamID64>/)?.[1];
+      if (steamId) {
+        return {
+          status: "taken",
+          verifyUrl,
+          detail: `Steam /id/${h} resolves to ${steamId}.`,
+          evidence: [{ title: verifyUrl, url: verifyUrl }],
+        };
+      }
+      return { status: "manual_verify", verifyUrl, detail: "Steam XML had no steamID64 or error tag." };
+    } catch (err) {
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `Steam probe failed (${err instanceof Error ? err.message : "unknown"}).`,
+      };
+    }
   },
 };
 
@@ -547,20 +703,17 @@ const linkedin: Provider = {
   id: "linkedin-company",
   name: "LinkedIn company page",
   category: "social",
-  async check(query, signal): Promise<ProviderCheckOutput> {
+  description: "LinkedIn company slug. Voyager API is auth-walled — no reliable anon check.",
+  async check(query): Promise<ProviderCheckOutput> {
     const h = handle(query);
     if (!h) return { status: "unknown", detail: "No valid handle chars." };
     const verifyUrl = `https://www.linkedin.com/company/${h}/`;
-    return probe({
-      url: verifyUrl,
+    return {
+      status: "manual_verify",
       verifyUrl,
-      signal,
-      method: "GET",
-      browserHeaders: true,
-      unreliable: true,
-      detailTaken: "LinkedIn responded but auth-walls hide reality.",
-      detailAvailable: "LinkedIn returned 404.",
-    });
+      detail:
+        "LinkedIn auth-walls /company/<slug> and the Voyager identity API; both 200/redirect for any input. Verify by signing in.",
+    };
   },
 };
 
@@ -584,6 +737,158 @@ const pinterest: Provider = {
   },
 };
 
+const discordVanity: Provider = {
+  id: "discord-vanity",
+  name: "Discord vanity invite",
+  category: "social",
+  description: "discord.gg/<vanity> invite code (a.k.a. server vanity URL).",
+  async check(query, signal): Promise<ProviderCheckOutput> {
+    const h = handle(query);
+    if (!h) return { status: "unknown", detail: "No valid vanity chars." };
+    const verifyUrl = `https://discord.com/invite/${h}`;
+    try {
+      const res = await fetchWithTimeout(
+        `https://discord.com/api/v9/invites/${encode(h)}`,
+        {
+          signal,
+          timeoutMs: 8000,
+          headers: { accept: "application/json" },
+        },
+      );
+      if (res.status === 200) {
+        const data = (await res.json().catch(() => null)) as
+          | { code?: string; guild?: { name?: string; id?: string } }
+          | null;
+        if (data?.code) {
+          return {
+            status: "taken",
+            verifyUrl,
+            detail: data.guild?.name
+              ? `discord.gg/${h} maps to "${data.guild.name}".`
+              : `discord.gg/${h} is an active invite.`,
+            evidence: [{ title: verifyUrl, url: verifyUrl }],
+          };
+        }
+        return { status: "manual_verify", verifyUrl, detail: "Discord 200 but no code field." };
+      }
+      if (res.status === 404) {
+        return { status: "available", verifyUrl, detail: `discord.gg/${h} is unclaimed.` };
+      }
+      return { status: "manual_verify", verifyUrl, detail: `Discord HTTP ${res.status}.` };
+    } catch (err) {
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `Discord probe failed (${err instanceof Error ? err.message : "unknown"}).`,
+      };
+    }
+  },
+};
+
+const telegram: Provider = {
+  id: "telegram",
+  name: "Telegram handle (user/channel/bot)",
+  category: "social",
+  description: "t.me/<handle> — covers users, channels, and bots.",
+  async check(query, signal): Promise<ProviderCheckOutput> {
+    const h = handle(query);
+    if (!h) return { status: "unknown", detail: "No valid handle chars." };
+    const verifyUrl = `https://t.me/${h}`;
+    try {
+      const res = await fetchWithTimeout(verifyUrl, {
+        signal,
+        timeoutMs: 8000,
+        headers: { "user-agent": BROWSER_UA, accept: "text/html,*/*" },
+      });
+      if (res.status === 404) {
+        return { status: "available", verifyUrl, detail: `t.me/${h} returns 404.` };
+      }
+      if (res.status !== 200) {
+        return { status: "manual_verify", verifyUrl, detail: `Telegram HTTP ${res.status}.` };
+      }
+      const body = await res.text();
+      if (body.includes("tgme_page_title")) {
+        return {
+          status: "taken",
+          verifyUrl,
+          detail: `t.me/${h} renders a profile page.`,
+          evidence: [{ title: verifyUrl, url: verifyUrl }],
+        };
+      }
+      return { status: "available", verifyUrl, detail: `t.me/${h} falls back to default landing.` };
+    } catch (err) {
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `Telegram probe failed (${err instanceof Error ? err.message : "unknown"}).`,
+      };
+    }
+  },
+};
+
+const emailMx: Provider = {
+  id: "email-mx",
+  name: "Email infra (MX record on .com)",
+  category: "social",
+  description: "Cloudflare DoH MX lookup for <name>.com — proxies 'does anyone use this for email'.",
+  async check(query, signal): Promise<ProviderCheckOutput> {
+    const label = domainLabel(query);
+    if (!label) return { status: "unknown", detail: "No valid domain label." };
+    const fqdn = `${label}.com`;
+    const verifyUrl = `https://www.google.com/search?q=${encode(fqdn)}+email`;
+    try {
+      const res = await fetchWithTimeout(
+        `https://cloudflare-dns.com/dns-query?name=${encode(fqdn)}&type=MX`,
+        {
+          signal,
+          timeoutMs: 8000,
+          headers: { accept: "application/dns-json" },
+        },
+      );
+      if (res.status !== 200) {
+        return { status: "manual_verify", verifyUrl, detail: `DoH HTTP ${res.status}.` };
+      }
+      const data = (await res.json().catch(() => null)) as
+        | { Status?: number; Answer?: Array<{ type?: number; data?: string }> }
+        | null;
+      if (!data) {
+        return { status: "manual_verify", verifyUrl, detail: "DoH response was not JSON." };
+      }
+      const mxAnswers = (data.Answer ?? []).filter((a) => a.type === 15);
+      if (data.Status === 0 && mxAnswers.length > 0) {
+        const sample = mxAnswers[0]?.data ?? "MX present";
+        return {
+          status: "taken",
+          verifyUrl,
+          detail: `${fqdn} has ${mxAnswers.length} MX record(s) (e.g. ${sample}).`,
+          evidence: [{ title: fqdn, url: `https://${fqdn}` }],
+        };
+      }
+      if (data.Status === 3) {
+        return { status: "available", verifyUrl, detail: `${fqdn} NXDOMAIN — no zone, no email.` };
+      }
+      if (data.Status === 0) {
+        return {
+          status: "available",
+          verifyUrl,
+          detail: `${fqdn} resolves but has no MX records.`,
+        };
+      }
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `DoH Status=${data.Status ?? "?"}, ${mxAnswers.length} MX answer(s).`,
+      };
+    } catch (err) {
+      return {
+        status: "manual_verify",
+        verifyUrl,
+        detail: `DoH probe failed (${err instanceof Error ? err.message : "unknown"}).`,
+      };
+    }
+  },
+};
+
 export const socialProviders: Provider[] = [
   bluesky,
   githubUser,
@@ -604,4 +909,7 @@ export const socialProviders: Provider[] = [
   steam,
   linkedin,
   pinterest,
+  discordVanity,
+  telegram,
+  emailMx,
 ];
