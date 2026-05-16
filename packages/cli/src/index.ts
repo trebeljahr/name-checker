@@ -3,9 +3,11 @@ import pc from "picocolors";
 import {
   allProviders,
   runCheck,
+  suggestVariants,
   type CheckRequest,
   type CheckSummary,
   type ProviderResult,
+  type Verdict,
 } from "@starter/shared";
 import { parseArgs, type ParsedArgs } from "./args.js";
 import {
@@ -76,8 +78,25 @@ async function main(): Promise<number> {
     names.map((n) => runCheck(baseReq(n), n === names[0] ? onResult : undefined)),
   );
 
+  const variantSummaries = args.variants > 0 && !isCompare && names[0]
+    ? await runVariantChecks(names[0], args.variants, args.timeoutMs, args.concurrency)
+    : null;
+
   if (args.json) {
-    const payload = isCompare ? summaries : summaries[0];
+    const base = isCompare ? summaries : summaries[0];
+    const payload = variantSummaries
+      ? {
+          ...(base as CheckSummary),
+          variants: {
+            query: names[0]!,
+            suggestions: variantSummaries.map((v) => ({
+              name: v.query,
+              verdict: v.verdict,
+              rollup: v.rollup,
+            })),
+          },
+        }
+      : base;
     process.stdout.write(JSON.stringify(payload, null, 2) + "\n");
   } else if (args.csv) {
     process.stdout.write(formatCsv(summaries));
@@ -95,8 +114,76 @@ async function main(): Promise<number> {
       );
   }
 
+  if (variantSummaries && !args.json && !args.csv && !args.md) {
+    process.stdout.write(formatVariants(names[0]!, variantSummaries, isTty));
+  }
+
   if (args.strict) return strictHasFailure(summaries) ? 1 : 0;
   return verdictHasFailure(summaries) ? 1 : 0;
+}
+
+const VARIANT_PROVIDERS = ["domain-com", "npm", "github-user", "bluesky"];
+
+async function runVariantChecks(
+  query: string,
+  count: number,
+  timeoutMs: number | undefined,
+  concurrency: number | undefined,
+): Promise<CheckSummary[]> {
+  const suggestions = suggestVariants(query, { count });
+  if (suggestions.length === 0) return [];
+  return Promise.all(
+    suggestions.map((name) =>
+      runCheck({
+        query: name,
+        providers: VARIANT_PROVIDERS,
+        timeoutMs,
+        concurrency,
+      }),
+    ),
+  );
+}
+
+const VERDICT_SHORT: Record<Verdict, string> = {
+  likely_available: "AVAIL",
+  likely_taken: "TAKEN",
+  mixed: "MIXED",
+};
+
+function paintVariantVerdict(v: Verdict, color: boolean): string {
+  const label = VERDICT_SHORT[v];
+  if (!color) return label;
+  if (v === "likely_available") return pc.green(label);
+  if (v === "likely_taken") return pc.red(label);
+  return pc.yellow(label);
+}
+
+function formatVariants(
+  query: string,
+  variants: CheckSummary[],
+  color: boolean,
+): string {
+  const lines: string[] = [];
+  lines.push("");
+  lines.push(
+    color
+      ? pc.bold(`Similar names for ${pc.cyan(query)}`)
+      : `Similar names for ${query}`,
+  );
+  const subtitle = `(${VARIANT_PROVIDERS.join(", ")}) — ${variants.length} candidates`;
+  lines.push(color ? pc.gray(subtitle) : subtitle);
+  lines.push("");
+  const maxName = Math.max(...variants.map((v) => v.query.length), 4);
+  for (const v of variants) {
+    const verdict = paintVariantVerdict(v.verdict, color);
+    const name = color ? pc.bold(v.query.padEnd(maxName)) : v.query.padEnd(maxName);
+    const r = v.rollup;
+    const rollup = `avail:${r.available} taken:${r.taken} part:${r.partial} unkn:${r.unknown} err:${r.error}`;
+    const detail = color ? pc.gray(rollup) : rollup;
+    lines.push(`  ${verdict}  ${name}  ${detail}`);
+  }
+  lines.push("");
+  return lines.join("\n");
 }
 
 function listProviders(): void {

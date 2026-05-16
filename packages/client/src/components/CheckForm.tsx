@@ -53,6 +53,9 @@ export function CheckForm({
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const [recentOpen, setRecentOpen] = useState<boolean>(false);
+  const [variants, setVariants] = useState<string[] | null>(null);
+  const [variantsLoading, setVariantsLoading] = useState<boolean>(false);
+  const [variantsError, setVariantsError] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -94,6 +97,8 @@ export function CheckForm({
     setError(null);
     setProgress(null);
     setRecentOpen(false);
+    setVariants(null);
+    setVariantsError(null);
 
     try {
       const res = await fetch("/api/check?stream=1", {
@@ -153,6 +158,25 @@ export function CheckForm({
     setQuery(q);
     setRecentOpen(false);
     void run(q);
+  }
+
+  async function loadVariants(): Promise<void> {
+    const q = (summary?.query ?? query).trim();
+    if (!q || variantsLoading) return;
+    setVariantsLoading(true);
+    setVariantsError(null);
+    try {
+      const res = await fetch(`/api/variants?q=${encodeURIComponent(q)}&n=20`);
+      if (!res.ok) {
+        throw new Error(`server responded ${res.status}`);
+      }
+      const json = (await res.json()) as { suggestions: string[] };
+      setVariants(json.suggestions);
+    } catch (err) {
+      setVariantsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setVariantsLoading(false);
+    }
   }
 
   return (
@@ -266,7 +290,87 @@ export function CheckForm({
         running={running}
         query={query}
       />
+
+      {summary &&
+        !running &&
+        (summary.verdict === "likely_taken" || summary.verdict === "mixed") && (
+          <VariantPanel
+            query={summary.query}
+            variants={variants}
+            loading={variantsLoading}
+            error={variantsError}
+            onLoad={loadVariants}
+          />
+        )}
     </div>
+  );
+}
+
+function VariantPanel({
+  query,
+  variants,
+  loading,
+  error,
+  onLoad,
+}: {
+  query: string;
+  variants: string[] | null;
+  loading: boolean;
+  error: string | null;
+  onLoad: () => void;
+}): React.ReactElement {
+  return (
+    <section
+      data-testid="variants-panel"
+      className="mt-6 rounded-lg border border-border bg-card/60 p-4"
+    >
+      <header className="mb-3 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+            Similar names
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Deterministic variants of{" "}
+            <span className="font-mono">{query}</span>
+          </p>
+        </div>
+        {!variants && !loading && (
+          <button
+            type="button"
+            onClick={onLoad}
+            data-testid="variants-load"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+          >
+            Suggest 20 similar names →
+          </button>
+        )}
+        {loading && (
+          <span className="text-xs text-muted-foreground">Loading…</span>
+        )}
+      </header>
+      {error && (
+        <div className="mb-2 rounded border border-rose-500/40 bg-rose-500/10 p-2 text-xs text-rose-700 dark:text-rose-300">
+          {error}
+        </div>
+      )}
+      {variants && variants.length === 0 && (
+        <div className="text-xs text-muted-foreground">No variants found.</div>
+      )}
+      {variants && variants.length > 0 && (
+        <ul className="flex flex-wrap gap-2" data-testid="variants-pills">
+          {variants.map((v) => (
+            <li key={v}>
+              <a
+                href={`/check/${encodeURIComponent(v)}`}
+                className="inline-block rounded-full border border-border bg-card px-3 py-1 font-mono text-xs text-foreground hover:border-foreground/50 hover:bg-accent"
+              >
+                {v}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

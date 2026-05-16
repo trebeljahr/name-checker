@@ -15,6 +15,7 @@ export type ParsedArgs = {
   showAll: boolean;
   help: boolean;
   list: boolean;
+  variants: number;
 };
 
 const VALID_CATEGORIES: ReadonlyArray<ProviderCategory> = [
@@ -36,6 +37,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     showAll: false,
     help: false,
     list: false,
+    variants: 0,
   };
   const positional: string[] = [];
   const compareExplicit: string[] = [];
@@ -92,6 +94,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case "--concurrency":
         out.concurrency = Number(argv[++i]);
         break;
+      case "--variants": {
+        const n = Number(argv[++i]);
+        if (!Number.isFinite(n) || n < 0)
+          throw new Error("--variants requires a non-negative integer");
+        out.variants = Math.floor(n);
+        break;
+      }
       default:
         if (a.startsWith("--")) throw new Error(`Unknown flag: ${a}`);
         positional.push(a);

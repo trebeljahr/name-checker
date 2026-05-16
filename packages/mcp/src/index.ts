@@ -12,6 +12,7 @@ import {
   findFreeNamesRequestSchema,
   runCheck,
   runCheckBatch,
+  suggestVariants,
   type CheckSummary,
   type FreeAnywhereResult,
   type ProviderCategory,
@@ -24,6 +25,8 @@ const DEFAULT_REQUIRED_PROVIDERS = [
   "github-user",
   "bluesky",
 ];
+
+const VARIANT_QUICK_PROVIDERS = DEFAULT_REQUIRED_PROVIDERS;
 
 const server = new Server(
   { name: "name-check-mcp", version: "0.1.0" },
@@ -160,6 +163,35 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: "list_providers",
       description: "List all available name-check providers with their ids, names, and categories.",
       inputSchema: { type: "object", properties: {} },
+    },
+    {
+      name: "suggest_variants",
+      description:
+        "Suggest near-name variants of a query using a deterministic generator (prefixes/suffixes, domain-noun compounds, optional mutations). When runChecks=true, runs each variant through a fast quick-check (domain-com, npm, github-user, bluesky) via runCheckBatch and returns only the survivors where every required provider is available.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Original name to derive variants from." },
+          count: {
+            type: "number",
+            description: "Max variants to return (default 20).",
+          },
+          runChecks: {
+            type: "boolean",
+            description:
+              "If true, run each variant through domain-com, npm, github-user, and bluesky and only return survivors (all available). Default false — returns the raw suggestion list.",
+          },
+          includeMutations: {
+            type: "boolean",
+            description: "Include vowel-swap / drop-final / doubled-consonant mutations. Default false.",
+          },
+          includeCompounds: {
+            type: "boolean",
+            description: "Include domain-noun compounds like <name>protocol. Default true.",
+          },
+        },
+        required: ["query"],
+      },
     },
   ],
 }));
@@ -307,6 +339,70 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       content: [
         { type: "text", text: markdown },
         { type: "text", text: JSON.stringify(result, null, 2) },
+      ],
+    };
+  }
+
+  if (req.params.name === "suggest_variants") {
+    const args = (req.params.arguments ?? {}) as {
+      query?: unknown;
+      count?: unknown;
+      runChecks?: unknown;
+      includeMutations?: unknown;
+      includeCompounds?: unknown;
+    };
+    if (typeof args.query !== "string" || !args.query.trim()) {
+      return {
+        isError: true,
+        content: [
+          { type: "text", text: "Invalid arguments: 'query' must be a non-empty string." },
+        ],
+      };
+    }
+    const count = typeof args.count === "number" ? args.count : 20;
+    const runChecks = args.runChecks === true;
+    const suggestions = suggestVariants(args.query, {
+      count,
+      includeMutations: args.includeMutations === true,
+      includeCompounds: args.includeCompounds !== false,
+    });
+    if (!runChecks || suggestions.length === 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              { query: args.query, suggestions, runChecks },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    }
+    const batch = await runCheckBatch({
+      queries: suggestions,
+      providers: VARIANT_QUICK_PROVIDERS,
+    });
+    const survivors = batch.results
+      .filter((s) => isFreeEverywhere(s, VARIANT_QUICK_PROVIDERS, []))
+      .map((s) => s.query);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              query: args.query,
+              providers: VARIANT_QUICK_PROVIDERS,
+              suggestions,
+              survivors,
+              totalMs: batch.totalMs,
+            },
+            null,
+            2,
+          ),
+        },
       ],
     };
   }
