@@ -18,13 +18,40 @@ const EMPTY_ROLLUP: Record<CheckStatus, number> = {
   error: 0,
 };
 
+const PRIORITY_TIER1 = 1;
+const PRIORITY_TIER2 = 5;
+const PRIORITY_TIER3 = 10;
+
+const PROVIDER_PRIORITY: Record<string, number> = {
+  npm: PRIORITY_TIER1,
+  pypi: PRIORITY_TIER1,
+  crates: PRIORITY_TIER1,
+  rubygems: PRIORITY_TIER1,
+  bluesky: PRIORITY_TIER1,
+  "github-user": PRIORITY_TIER1,
+  "github-repo-search": PRIORITY_TIER1,
+  "apple-appstore": PRIORITY_TIER2,
+  tmview: PRIORITY_TIER2,
+  "reddit-user": PRIORITY_TIER2,
+  "reddit-sub": PRIORITY_TIER2,
+  "mastodon-social": PRIORITY_TIER2,
+  "mastodon-gamedev": PRIORITY_TIER2,
+};
+
+function providerPriority(id: string): number {
+  if (id.startsWith("domain-")) return PRIORITY_TIER1;
+  return PROVIDER_PRIORITY[id] ?? PRIORITY_TIER3;
+}
+
 export function selectProviders(req: CheckRequest): Provider[] {
-  return allProviders.filter((p) => {
-    if (req.providers && !req.providers.includes(p.id)) return false;
-    if (req.excludeProviders && req.excludeProviders.includes(p.id)) return false;
-    if (req.categories && !req.categories.includes(p.category)) return false;
-    return true;
-  });
+  return allProviders
+    .filter((p) => {
+      if (req.providers && !req.providers.includes(p.id)) return false;
+      if (req.excludeProviders && req.excludeProviders.includes(p.id)) return false;
+      if (req.categories && !req.categories.includes(p.category)) return false;
+      return true;
+    })
+    .sort((a, b) => providerPriority(a.id) - providerPriority(b.id));
 }
 
 export async function runCheck(

@@ -9,6 +9,60 @@ export type FetchOpts = {
   redirect?: "follow" | "manual" | "error";
 };
 
+type HostBucket = { active: number; queue: Array<() => void> };
+
+const DEFAULT_HOST_CAP = 3;
+
+const HOST_LIMITS: Record<string, number> = {
+  "api.github.com": 2,
+  "www.reddit.com": 2,
+  "rdap.org": 4,
+};
+
+export class HostLimiter {
+  private readonly buckets = new Map<string, HostBucket>();
+
+  cap(host: string): number {
+    return HOST_LIMITS[host] ?? DEFAULT_HOST_CAP;
+  }
+
+  acquire(host: string): Promise<void> {
+    let bucket = this.buckets.get(host);
+    if (!bucket) {
+      bucket = { active: 0, queue: [] };
+      this.buckets.set(host, bucket);
+    }
+    if (bucket.active < this.cap(host)) {
+      bucket.active++;
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      bucket!.queue.push(resolve);
+    });
+  }
+
+  release(host: string): void {
+    const bucket = this.buckets.get(host);
+    if (!bucket) return;
+    const next = bucket.queue.shift();
+    if (next) {
+      next();
+      return;
+    }
+    bucket.active = Math.max(0, bucket.active - 1);
+  }
+}
+
+const hostLimiter = new HostLimiter();
+
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
 export async function fetchWithTimeout(
   url: string,
   opts: FetchOpts = {},
@@ -17,6 +71,8 @@ export async function fetchWithTimeout(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(new Error("timeout")), timeoutMs);
   const signal = opts.signal ? mergeSignals(opts.signal, ctrl.signal) : ctrl.signal;
+  const host = hostnameOf(url);
+  await hostLimiter.acquire(host);
   try {
     return await fetch(url, {
       method: opts.method ?? "GET",
@@ -27,6 +83,7 @@ export async function fetchWithTimeout(
     });
   } finally {
     clearTimeout(t);
+    hostLimiter.release(host);
   }
 }
 
