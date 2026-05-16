@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { runCheck } from "@starter/shared";
 import { CheckForm } from "@/components/CheckForm";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { WatchButton } from "@/components/WatchButton";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +36,16 @@ export default async function CheckPermalinkPage({
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           name-check
         </h1>
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/watch"
+            className="text-xs font-mono text-muted-foreground hover:text-foreground"
+          >
+            /watch
+          </Link>
+          <WatchButton query={query} />
+          <ThemeToggle />
+        </div>
       </div>
       <CheckForm
         initialQuery={query}

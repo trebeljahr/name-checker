@@ -55,6 +55,11 @@ coverage/
 # Docker
 .docker-data/
 
+# Local sqlite sidecar for watch-list (dev only)
+packages/client/data/
+*.db
+*.db-journal
+
 # TypeScript
 *.tsbuildinfo
 

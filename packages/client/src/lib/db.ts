@@ -16,6 +16,7 @@ export function getDb(): Database.Database {
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
+  db.pragma("busy_timeout = 5000");
 
   applyMigrations(db);
   instance = db;
@@ -95,5 +96,19 @@ function applyMigrations(db: Database.Database): void {
       runs INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (user_id, day)
     );
+
+    CREATE TABLE IF NOT EXISTS watches (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+      query TEXT NOT NULL,
+      categories_csv TEXT,
+      providers_csv TEXT,
+      created_at INTEGER NOT NULL,
+      last_run_at INTEGER,
+      last_summary_json TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS watches_user_idx ON watches(user_id);
+    CREATE INDEX IF NOT EXISTS watches_run_idx ON watches(last_run_at);
   `);
 }

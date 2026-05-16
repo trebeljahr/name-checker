@@ -3,6 +3,18 @@
   "functions": {
     "src/app/api/check/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/watch/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/watch/route.ts": {
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/watch",
+      "schedule": "0 13 * * *"
+    }
+  ]
 }
