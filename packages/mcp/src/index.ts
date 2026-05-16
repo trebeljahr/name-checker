@@ -102,9 +102,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     }
     const summary = await runCheck(parsed.data);
     const markdown = renderMarkdown(summary.results, summary);
+    const resourceLinks = buildResourceLinks(summary.results);
     return {
       content: [
         { type: "text", text: markdown },
+        ...resourceLinks,
         { type: "text", text: JSON.stringify(summary, null, 2) },
       ],
     };
@@ -115,6 +117,45 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     content: [{ type: "text", text: `Unknown tool: ${req.params.name}` }],
   };
 });
+
+type ResourceLinkBlock = {
+  type: "resource_link";
+  uri: string;
+  name?: string;
+  description?: string;
+};
+
+const RESOURCE_LINK_CAP = 20;
+
+function buildResourceLinks(results: ProviderResult[]): ResourceLinkBlock[] {
+  const linkable = results.filter(
+    (r): r is ProviderResult & { verifyUrl: string } =>
+      typeof r.verifyUrl === "string" && r.verifyUrl.length > 0,
+  );
+  const taken = linkable.filter((r) => r.status === "taken");
+  const partial = linkable.filter((r) => r.status === "partial");
+  const trademark = linkable.filter(
+    (r) => r.category === "trademark" && r.status !== "taken" && r.status !== "partial",
+  );
+  const domain = linkable.filter(
+    (r) => r.category === "domain" && r.status !== "taken" && r.status !== "partial",
+  );
+  const ordered = [...taken, ...partial, ...trademark, ...domain];
+  const seen = new Set<string>();
+  const out: ResourceLinkBlock[] = [];
+  for (const r of ordered) {
+    if (out.length >= RESOURCE_LINK_CAP) break;
+    if (seen.has(r.verifyUrl)) continue;
+    seen.add(r.verifyUrl);
+    out.push({
+      type: "resource_link",
+      uri: r.verifyUrl,
+      name: `${r.providerName} — ${r.status}`,
+      description: r.detail ?? r.error,
+    });
+  }
+  return out;
+}
 
 function renderMarkdown(
   results: ProviderResult[],
