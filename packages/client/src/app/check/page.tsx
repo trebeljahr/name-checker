@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { CheckForm } from "@/components/CheckForm";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
 
 export const metadata = {
   title: "Check a name",
@@ -14,7 +16,22 @@ export default function CheckPage(): React.ReactElement {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           name-check
         </h1>
-        <ThemeToggle />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/bulk"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Bulk
+          </Link>
+          <Link
+            href="/pricing"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Pricing
+          </Link>
+          <ThemeToggle />
+          <UserMenu />
+        </div>
       </div>
       <CheckForm />
     </main>

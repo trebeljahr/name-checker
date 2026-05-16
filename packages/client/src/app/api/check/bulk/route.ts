@@ -13,6 +13,7 @@ import {
   checkResponseCache,
   getClientIp,
 } from "@/lib/rate-limit-cache";
+import { enforceBulkLimits, recordRun, requirePlan } from "@/lib/plan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +50,11 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
+  const gate = await requirePlan(req);
+  if (!gate.ok) {
+    return NextResponse.json(gate.body, { status: gate.status });
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -70,6 +76,13 @@ export async function POST(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
+
+  const limit = enforceBulkLimits(gate.plan, gate.user.id, queries.length);
+  if (!limit.ok) {
+    return NextResponse.json(limit.body, { status: limit.status });
+  }
+
+  recordRun(gate.user.id);
 
   const url = new URL(req.url);
   if (url.searchParams.get("stream") === "1") {

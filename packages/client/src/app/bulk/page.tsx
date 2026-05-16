@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BulkForm } from "@/components/BulkForm";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
 
 export const metadata = {
   title: "Bulk name check",
@@ -35,7 +36,14 @@ export default function BulkPage(): React.ReactElement {
             >
               Single check
             </Link>
+            <Link
+              href="/pricing"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Pricing
+            </Link>
             <ThemeToggle />
+            <UserMenu />
           </div>
         </div>
       </div>

@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import type {
   CheckSummary,
   ProviderCategory,
   ProviderResult,
 } from "@starter/shared";
 import { BulkMatrix, type BulkRow } from "./BulkMatrix";
+import { FREE_NAMES_PER_REQUEST } from "@/lib/plan-constants";
+import { useSession } from "@/lib/auth-client";
 
 const ALL_CATEGORIES: ProviderCategory[] = [
   "trademark",
@@ -29,8 +32,13 @@ const CATEGORY_LABEL: Record<ProviderCategory, string> = {
 const MAX_BULK = 100;
 
 type Parsed = { query: string; label?: string };
+type Me =
+  | { authenticated: false }
+  | { authenticated: true; plan: "free" | "pro"; runsToday: number };
 
 export function BulkForm(): React.ReactElement {
+  const { data: session, isPending } = useSession();
+  const [me, setMe] = useState<Me | null>(null);
   const [text, setText] = useState<string>("");
   const [parsedFromFile, setParsedFromFile] = useState<Parsed[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -39,12 +47,57 @@ export function BulkForm(): React.ReactElement {
   const [running, setRunning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!session?.user) {
+      setMe(null);
+      return;
+    }
+    void fetch("/api/me")
+      .then((r) => r.json() as Promise<Me>)
+      .then(setMe)
+      .catch(() => undefined);
+  }, [session?.user]);
+
   const parsed = useMemo<Parsed[]>(() => {
     if (parsedFromFile && parsedFromFile.length > 0) return parsedFromFile;
     return parseText(text);
   }, [text, parsedFromFile]);
 
+  const isPro = me?.authenticated && me.plan === "pro";
   const overLimit = parsed.length > MAX_BULK;
+  const overFreeLimit = !isPro && parsed.length > FREE_NAMES_PER_REQUEST;
+
+  if (isPending) {
+    return <div className="h-32 animate-pulse rounded-md bg-muted" />;
+  }
+
+  if (!session?.user) {
+    return (
+      <div className="rounded-xl border border-border bg-card/60 p-8 text-center">
+        <h2 className="text-lg font-semibold text-foreground">
+          Sign in to use bulk check
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Bulk check requires an account. Free includes up to{" "}
+          {FREE_NAMES_PER_REQUEST} names per run, 10 runs per day.
+        </p>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <Link
+            href="/sign-in?next=/bulk"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/pricing"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            See pricing
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   function toggleCategory(c: ProviderCategory): void {
     setCategories((prev) =>
@@ -116,6 +169,28 @@ export function BulkForm(): React.ReactElement {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ queries, categories }),
       });
+      if (res.status === 401 || res.status === 402) {
+        const data = (await res.json()) as {
+          error?: string;
+          upgradeUrl?: string;
+          limit?: number;
+        };
+        if (data.error === "free_limit_size") {
+          setError(
+            `Free plan limit reached — max ${data.limit ?? FREE_NAMES_PER_REQUEST} names per request. Upgrade to Pro for unlimited.`,
+          );
+        } else if (data.error === "free_limit_runs") {
+          setError(
+            `Free plan limit reached — ${data.limit ?? 10} bulk runs per day. Upgrade to Pro for unlimited.`,
+          );
+        } else if (data.error === "unauthenticated") {
+          setError("Please sign in to run bulk checks.");
+        } else {
+          setError(data.error ?? `server error (${res.status})`);
+        }
+        setRunning(false);
+        return;
+      }
       if (!res.ok || !res.body) {
         const text = await res.text();
         throw new Error(`server ${res.status}: ${text.slice(0, 200)}`);
@@ -248,6 +323,20 @@ export function BulkForm(): React.ReactElement {
           </div>
         </div>
 
+        {overFreeLimit && !overLimit && (
+          <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
+            You&apos;ve pasted {parsed.length} names. Free plan caps bulk runs
+            at {FREE_NAMES_PER_REQUEST} names per request.{" "}
+            <Link
+              href="/pricing"
+              className="font-semibold underline underline-offset-2"
+            >
+              Upgrade to Pro
+            </Link>{" "}
+            for unlimited bulk.
+          </div>
+        )}
+
         {overLimit && (
           <div className="rounded-md border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
             {parsed.length} names parsed — max is {MAX_BULK}. Trim the list and try again.
@@ -256,7 +345,16 @@ export function BulkForm(): React.ReactElement {
 
         {error && !overLimit && (
           <div className="rounded-md border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
-            {error}
+            {error}{" "}
+            {(error.includes("Free plan limit") ||
+              error.includes("free_limit")) && (
+              <Link
+                href="/pricing"
+                className="font-semibold underline underline-offset-2"
+              >
+                See pricing
+              </Link>
+            )}
           </div>
         )}
 
@@ -264,7 +362,13 @@ export function BulkForm(): React.ReactElement {
           <button
             type="submit"
             data-testid="bulk-submit"
-            disabled={running || parsed.length === 0 || overLimit || categories.length === 0}
+            disabled={
+              running ||
+              parsed.length === 0 ||
+              overLimit ||
+              overFreeLimit ||
+              categories.length === 0
+            }
             className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {running
@@ -276,6 +380,13 @@ export function BulkForm(): React.ReactElement {
           {categories.length === 0 && (
             <span className="text-xs text-muted-foreground">
               Pick at least one category.
+            </span>
+          )}
+          {me?.authenticated && (
+            <span className="text-xs text-muted-foreground">
+              {isPro
+                ? "Plan: Pro"
+                : `Plan: Free · ${me.runsToday}/10 runs today`}
             </span>
           )}
         </div>

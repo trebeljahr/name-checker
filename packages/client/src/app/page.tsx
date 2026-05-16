@@ -14,6 +14,7 @@ import {
 import { HeroSearch } from "@/components/HeroSearch";
 import { LiveDemo } from "@/components/LiveDemo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/UserMenu";
 
 export const metadata = {
   title: "name-check — Is your name actually available?",
@@ -121,12 +122,19 @@ export default function LandingPage(): React.ReactElement {
             Bulk check
           </Link>
           <Link
+            href="/pricing"
+            className="hidden text-sm text-muted-foreground hover:text-foreground sm:inline"
+          >
+            Pricing
+          </Link>
+          <Link
             href="/check"
             className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
             Open app
           </Link>
           <ThemeToggle />
+          <UserMenu />
         </div>
       </nav>
 
@@ -339,6 +347,9 @@ export default function LandingPage(): React.ReactElement {
             </Link>
             <Link href="/bulk" className="hover:text-foreground">
               Bulk
+            </Link>
+            <Link href="/pricing" className="hover:text-foreground">
+              Pricing
             </Link>
             <a href="#sources" className="hover:text-foreground">
               Sources

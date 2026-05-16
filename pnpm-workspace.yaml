@@ -2,9 +2,11 @@ packages:
   - "packages/*"
 allowBuilds:
   '@sentry/cli': true
+  better-sqlite3: true
   esbuild: true
   sharp: true
 onlyBuiltDependencies:
   - "@sentry/cli"
   - esbuild
   - sharp
+  - better-sqlite3

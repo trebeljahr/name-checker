@@ -62,6 +62,9 @@ coverage/
 docs-site/.docusaurus/
 docs-site/build/
 
+# Auth / SQLite (better-auth + subscription + usage data)
+packages/client/data/
+
 # Misc
 *.log
 npm-debug.log*
