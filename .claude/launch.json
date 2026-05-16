@@ -3,8 +3,9 @@
   "configurations": [
     {
       "name": "client",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@starter/client", "exec", "next", "dev", "--turbopack", "-p", "57492"],
+      "runtimeExecutable": "./node_modules/.bin/next",
+      "runtimeArgs": ["dev", "--turbopack", "-p", "57492"],
+      "cwd": "packages/client",
       "port": 57492,
       "autoPort": false
     },
