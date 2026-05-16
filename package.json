@@ -17,8 +17,11 @@
     "build:client": "pnpm --filter @starter/shared run build && pnpm --filter @starter/client run build",
     "check": "pnpm --filter @starter/cli start --",
     "mcp": "pnpm --filter @starter/mcp start",
-    "test": "pnpm run test:client",
+    "test": "pnpm run test:unit && pnpm run test:e2e",
+    "test:unit": "pnpm --filter @starter/shared run test && pnpm --filter @starter/client run test",
+    "test:shared": "pnpm --filter @starter/shared run test",
     "test:client": "pnpm --filter @starter/client run test",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm -r run typecheck"
   },
   "devDependencies": {

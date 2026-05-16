@@ -58,21 +58,28 @@ export async function runCheck(
   req: CheckRequest,
   onResult?: (r: ProviderResult) => void,
 ): Promise<CheckSummary> {
+  return runCheckWithProviders(selectProviders(req), req, onResult);
+}
+
+export async function runCheckWithProviders(
+  providers: Provider[],
+  req: CheckRequest,
+  onResult?: (r: ProviderResult) => void,
+): Promise<CheckSummary> {
   const startedAtDate = new Date();
   const concurrency = req.concurrency ?? 10;
   const timeoutMs = req.timeoutMs ?? 12_000;
   const query = safeQuery(req.query);
   if (!query) throw new Error("query is required");
 
-  const selected = selectProviders(req);
-  const results: ProviderResult[] = new Array(selected.length);
+  const results: ProviderResult[] = new Array(providers.length);
   let index = 0;
 
   async function worker(): Promise<void> {
     while (true) {
       const i = index++;
-      if (i >= selected.length) return;
-      const p = selected[i]!;
+      if (i >= providers.length) return;
+      const p = providers[i]!;
       const r = await runOne(p, query, timeoutMs);
       results[i] = r;
       onResult?.(r);
@@ -80,7 +87,7 @@ export async function runCheck(
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(concurrency, selected.length || 1) }, () => worker()),
+    Array.from({ length: Math.min(concurrency, providers.length || 1) }, () => worker()),
   );
 
   const finishedAtDate = new Date();
