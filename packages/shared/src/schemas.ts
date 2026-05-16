@@ -18,6 +18,17 @@ export const checkRequestSchema = z.object({
   concurrency: z.number().int().min(1).max(50).optional(),
 });
 
+export const MAX_BULK_QUERIES = 100;
+
+export const bulkCheckRequestSchema = z.object({
+  queries: z.array(z.string().min(1).max(80)).min(1).max(MAX_BULK_QUERIES),
+  categories: z.array(providerCategorySchema).optional(),
+  providers: z.array(z.string()).optional(),
+  excludeProviders: z.array(z.string()).optional(),
+  timeoutMs: z.number().int().min(1000).max(60_000).optional(),
+  concurrency: z.number().int().min(1).max(50).optional(),
+});
+
 export const checkStatusSchema = z.enum([
   "available",
   "taken",

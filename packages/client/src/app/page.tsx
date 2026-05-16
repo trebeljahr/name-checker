@@ -115,6 +115,12 @@ export default function LandingPage(): React.ReactElement {
             Sources
           </a>
           <Link
+            href="/bulk"
+            className="hidden text-sm text-muted-foreground hover:text-foreground sm:inline"
+          >
+            Bulk check
+          </Link>
+          <Link
             href="/check"
             className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
@@ -297,12 +303,19 @@ export default function LandingPage(): React.ReactElement {
           <div className="mx-auto mt-10 max-w-2xl">
             <HeroSearch />
           </div>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <Link
               href="/check"
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               Or open the full app
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Link
+              href="/bulk"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              Check many names at once
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -323,6 +336,9 @@ export default function LandingPage(): React.ReactElement {
           <div className="flex items-center gap-5">
             <Link href="/check" className="hover:text-foreground">
               App
+            </Link>
+            <Link href="/bulk" className="hover:text-foreground">
+              Bulk
             </Link>
             <a href="#sources" className="hover:text-foreground">
               Sources
