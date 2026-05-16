@@ -7,11 +7,23 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import {
   allProviders,
+  batchCheckRequestSchema,
   checkRequestSchema,
+  findFreeNamesRequestSchema,
   runCheck,
+  runCheckBatch,
   type CheckSummary,
+  type FreeAnywhereResult,
+  type ProviderCategory,
   type ProviderResult,
 } from "@starter/shared";
+
+const DEFAULT_REQUIRED_PROVIDERS = [
+  "domain-com",
+  "npm",
+  "github-user",
+  "bluesky",
+];
 
 const server = new Server(
   { name: "name-check-mcp", version: "0.1.0" },
@@ -57,6 +69,91 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           concurrency: { type: "number", description: "Max parallel requests (default 10)." },
         },
         required: ["query"],
+      },
+    },
+    {
+      name: "check_batch",
+      description:
+        "Check up to 100 names in one call. Returns per-query CheckSummary results plus a markdown overview. Useful when an agent needs to evaluate many candidate names at once. Duplicate queries within the batch share an in-memory cache.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          queries: {
+            type: "array",
+            items: { type: "string" },
+            description: "1..100 names to check.",
+          },
+          categories: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: [
+                "trademark",
+                "domain",
+                "social",
+                "appstore",
+                "package",
+                "code",
+              ],
+            },
+            description: "Limit to these provider categories.",
+          },
+          providers: {
+            type: "array",
+            items: { type: "string" },
+            description: "Explicit provider id allowlist.",
+          },
+          excludeProviders: {
+            type: "array",
+            items: { type: "string" },
+            description: "Provider ids to skip.",
+          },
+          timeoutMs: { type: "number", description: "Per-provider timeout (default 12000)." },
+          concurrency: { type: "number", description: "Per-query provider concurrency (default 8)." },
+          batchConcurrency: { type: "number", description: "How many queries to run in parallel (default 4)." },
+        },
+        required: ["queries"],
+      },
+    },
+    {
+      name: "find_free_names",
+      description:
+        "Brainstorming primitive: given candidate names, return only those that are 'available' on every required provider (and/or every required category). Default required providers are domain-com, npm, github-user, bluesky. Pair with an LLM that generates 50-100 candidates; this tool returns the survivors.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          queries: {
+            type: "array",
+            items: { type: "string" },
+            description: "Candidate names. 1..100.",
+          },
+          requireAvailableProviders: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Provider ids that must return status=available. Default: [domain-com, npm, github-user, bluesky].",
+          },
+          requireAvailableCategories: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: [
+                "trademark",
+                "domain",
+                "social",
+                "appstore",
+                "package",
+                "code",
+              ],
+            },
+            description:
+              "Categories where every provider in the category must return status=available.",
+          },
+          timeoutMs: { type: "number", description: "Per-provider timeout (default 12000)." },
+          concurrency: { type: "number", description: "Per-query provider concurrency (default 8)." },
+          batchConcurrency: { type: "number", description: "Queries-in-flight (default 4)." },
+        },
+        required: ["queries"],
       },
     },
     {
@@ -113,11 +210,197 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     };
   }
 
+  if (req.params.name === "check_batch") {
+    const parsed = batchCheckRequestSchema.safeParse(req.params.arguments ?? {});
+    if (!parsed.success) {
+      return {
+        isError: true,
+        content: [
+          { type: "text", text: `Invalid arguments: ${parsed.error.message}` },
+        ],
+      };
+    }
+    const batch = await runCheckBatch(parsed.data);
+    const markdown = renderBatchMarkdown(batch.queries, batch.results, batch.totalMs);
+    return {
+      content: [
+        { type: "text", text: markdown },
+        { type: "text", text: JSON.stringify(batch, null, 2) },
+      ],
+    };
+  }
+
+  if (req.params.name === "find_free_names") {
+    const parsed = findFreeNamesRequestSchema.safeParse(req.params.arguments ?? {});
+    if (!parsed.success) {
+      return {
+        isError: true,
+        content: [
+          { type: "text", text: `Invalid arguments: ${parsed.error.message}` },
+        ],
+      };
+    }
+    const args = parsed.data;
+    const requiredProviders =
+      args.requireAvailableProviders && args.requireAvailableProviders.length > 0
+        ? args.requireAvailableProviders
+        : args.requireAvailableCategories && args.requireAvailableCategories.length > 0
+          ? []
+          : DEFAULT_REQUIRED_PROVIDERS;
+    const requiredCategories: ProviderCategory[] = args.requireAvailableCategories ?? [];
+
+    const knownProviderIds = new Set(allProviders.map((p) => p.id));
+    const unknownRequired = requiredProviders.filter(
+      (id) => !knownProviderIds.has(id),
+    );
+    if (unknownRequired.length > 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `Unknown provider ids: ${unknownRequired.join(", ")}. Use list_providers to see valid ids.`,
+          },
+        ],
+      };
+    }
+
+    const categoryIds = new Set(
+      allProviders
+        .filter((p) => requiredCategories.includes(p.category))
+        .map((p) => p.id),
+    );
+    const runProviderIds = Array.from(
+      new Set([...requiredProviders, ...categoryIds]),
+    );
+
+    const batch = await runCheckBatch({
+      queries: args.queries,
+      providers: runProviderIds,
+      timeoutMs: args.timeoutMs,
+      concurrency: args.concurrency,
+      batchConcurrency: args.batchConcurrency,
+    });
+
+    const freeNames = batch.results
+      .filter((s) =>
+        isFreeEverywhere(s, requiredProviders, requiredCategories),
+      )
+      .map((s) => s.query);
+
+    const result: FreeAnywhereResult = {
+      freeNames,
+      requiredProviders,
+      requiredCategories,
+      allResults: batch.results,
+      totalMs: batch.totalMs,
+    };
+    const markdown = renderFreeNamesMarkdown(
+      batch.queries,
+      batch.results,
+      freeNames,
+      requiredProviders,
+      requiredCategories,
+      batch.totalMs,
+    );
+    return {
+      content: [
+        { type: "text", text: markdown },
+        { type: "text", text: JSON.stringify(result, null, 2) },
+      ],
+    };
+  }
+
   return {
     isError: true,
     content: [{ type: "text", text: `Unknown tool: ${req.params.name}` }],
   };
 });
+
+function isFreeEverywhere(
+  summary: CheckSummary,
+  requiredProviders: string[],
+  requiredCategories: ProviderCategory[],
+): boolean {
+  const byId = new Map(summary.results.map((r) => [r.providerId, r]));
+  for (const pid of requiredProviders) {
+    const r = byId.get(pid);
+    if (!r || r.status !== "available") return false;
+  }
+  if (requiredCategories.length > 0) {
+    for (const cat of requiredCategories) {
+      const inCat = summary.results.filter((r) => r.category === cat);
+      if (inCat.length === 0) return false;
+      if (!inCat.every((r) => r.status === "available")) return false;
+    }
+  }
+  return true;
+}
+
+function renderBatchMarkdown(
+  queries: string[],
+  results: CheckSummary[],
+  totalMs: number,
+): string {
+  const lines: string[] = [];
+  lines.push(`# check_batch (${queries.length} queries · ${totalMs}ms)`);
+  lines.push("");
+  lines.push("| query | verdict | avail | taken | partial | check | unkn | err | ms |");
+  lines.push("|---|---|---:|---:|---:|---:|---:|---:|---:|");
+  for (const s of results) {
+    const r = s.rollup;
+    lines.push(
+      `| \`${s.query}\` | ${s.verdict} | ${r.available} | ${r.taken} | ${r.partial} | ${r.manual_verify} | ${r.unknown} | ${r.error} | ${s.totalMs} |`,
+    );
+  }
+  return lines.join("\n");
+}
+
+function renderFreeNamesMarkdown(
+  queries: string[],
+  results: CheckSummary[],
+  freeNames: string[],
+  requiredProviders: string[],
+  requiredCategories: ProviderCategory[],
+  totalMs: number,
+): string {
+  const lines: string[] = [];
+  lines.push(
+    `# find_free_names (${freeNames.length}/${queries.length} survived · ${totalMs}ms)`,
+  );
+  lines.push("");
+  lines.push(
+    `Required providers: ${requiredProviders.length > 0 ? requiredProviders.map((p) => `\`${p}\``).join(", ") : "(none)"}`,
+  );
+  lines.push(
+    `Required categories: ${requiredCategories.length > 0 ? requiredCategories.join(", ") : "(none)"}`,
+  );
+  lines.push("");
+  lines.push("## Free names");
+  if (freeNames.length === 0) {
+    lines.push("_None of the candidates are free on every required provider._");
+  } else {
+    for (const n of freeNames) lines.push(`- ✅ \`${n}\``);
+  }
+  lines.push("");
+  lines.push("## Per-candidate detail");
+  for (const s of results) {
+    const free = freeNames.includes(s.query);
+    lines.push(`### ${free ? "✅" : "❌"} \`${s.query}\``);
+    for (const pid of requiredProviders) {
+      const r = s.results.find((x) => x.providerId === pid);
+      lines.push(`- \`${pid}\`: ${r ? r.status : "missing"}${r?.detail ? ` — ${r.detail}` : ""}`);
+    }
+    for (const cat of requiredCategories) {
+      const inCat = s.results.filter((x) => x.category === cat);
+      const ok = inCat.every((x) => x.status === "available");
+      lines.push(
+        `- category \`${cat}\`: ${ok ? "all available" : "not all available"} (${inCat.length} providers)`,
+      );
+    }
+  }
+  return lines.join("\n");
+}
 
 type ResourceLinkBlock = {
   type: "resource_link";

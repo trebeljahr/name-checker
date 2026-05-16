@@ -29,6 +29,25 @@ export const bulkCheckRequestSchema = z.object({
   concurrency: z.number().int().min(1).max(50).optional(),
 });
 
+export const batchCheckRequestSchema = z.object({
+  queries: z.array(z.string().min(1).max(80)).min(1).max(100),
+  categories: z.array(providerCategorySchema).optional(),
+  providers: z.array(z.string()).optional(),
+  excludeProviders: z.array(z.string()).optional(),
+  timeoutMs: z.number().int().min(1000).max(60_000).optional(),
+  concurrency: z.number().int().min(1).max(50).optional(),
+  batchConcurrency: z.number().int().min(1).max(20).optional(),
+});
+
+export const findFreeNamesRequestSchema = z.object({
+  queries: z.array(z.string().min(1).max(80)).min(1).max(100),
+  requireAvailableProviders: z.array(z.string()).optional(),
+  requireAvailableCategories: z.array(providerCategorySchema).optional(),
+  timeoutMs: z.number().int().min(1000).max(60_000).optional(),
+  concurrency: z.number().int().min(1).max(50).optional(),
+  batchConcurrency: z.number().int().min(1).max(20).optional(),
+});
+
 export const checkStatusSchema = z.enum([
   "available",
   "taken",

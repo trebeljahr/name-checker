@@ -75,3 +75,27 @@ export type CheckSummary = {
   scoreBreakdown: ScoreBreakdownEntry[];
   subverdicts: Record<ProviderCategory, Subverdict>;
 };
+
+export type BatchCheckRequest = {
+  queries: string[];
+  categories?: ProviderCategory[];
+  providers?: string[];
+  excludeProviders?: string[];
+  timeoutMs?: number;
+  concurrency?: number;
+  batchConcurrency?: number;
+};
+
+export type BatchCheckSummary = {
+  queries: string[];
+  results: CheckSummary[];
+  totalMs: number;
+};
+
+export type FreeAnywhereResult = {
+  freeNames: string[];
+  requiredProviders: string[];
+  requiredCategories: ProviderCategory[];
+  allResults: CheckSummary[];
+  totalMs: number;
+};

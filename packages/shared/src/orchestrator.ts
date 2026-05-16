@@ -1,8 +1,11 @@
 import type {
+  BatchCheckRequest,
+  BatchCheckSummary,
   CheckRequest,
   CheckStatus,
   CheckSummary,
   Provider,
+  ProviderCheckOutput,
   ProviderResult,
   Verdict,
 } from "./types.js";
@@ -151,4 +154,93 @@ function tally(results: ProviderResult[]): Record<CheckStatus, number> {
   const r: Record<CheckStatus, number> = { ...EMPTY_ROLLUP };
   for (const x of results) r[x.status]++;
   return r;
+}
+
+function wrapCachedProvider(
+  p: Provider,
+  cache: Map<string, Promise<ProviderCheckOutput>>,
+): Provider {
+  return {
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    description: p.description,
+    check(query, signal) {
+      const key = `${p.id}::${query}`;
+      let pending = cache.get(key);
+      if (!pending) {
+        pending = p.check(query);
+        cache.set(key, pending);
+      }
+      const shared = pending;
+      if (!signal) return shared;
+      if (signal.aborted) {
+        return Promise.reject(signal.reason ?? new Error("aborted"));
+      }
+      return new Promise<ProviderCheckOutput>((resolve, reject) => {
+        const onAbort = (): void =>
+          reject(signal.reason ?? new Error("aborted"));
+        signal.addEventListener("abort", onAbort, { once: true });
+        shared.then(
+          (v) => {
+            signal.removeEventListener("abort", onAbort);
+            resolve(v);
+          },
+          (err) => {
+            signal.removeEventListener("abort", onAbort);
+            reject(err);
+          },
+        );
+      });
+    },
+  };
+}
+
+export async function runCheckBatch(
+  req: BatchCheckRequest,
+): Promise<BatchCheckSummary> {
+  const startedAt = Date.now();
+  const queries = req.queries.map(safeQuery).filter((q) => q.length > 0);
+  if (queries.length === 0) throw new Error("queries is required");
+
+  const concurrency = req.concurrency ?? 8;
+  const timeoutMs = req.timeoutMs ?? 12_000;
+  const batchConcurrency = req.batchConcurrency ?? 4;
+
+  const baseProviders = selectProviders({
+    query: queries[0]!,
+    categories: req.categories,
+    providers: req.providers,
+    excludeProviders: req.excludeProviders,
+  });
+  const cache = new Map<string, Promise<ProviderCheckOutput>>();
+  const cachedProviders = baseProviders.map((p) => wrapCachedProvider(p, cache));
+
+  const results: CheckSummary[] = new Array(queries.length);
+  let cursor = 0;
+  async function worker(): Promise<void> {
+    while (true) {
+      const i = cursor++;
+      if (i >= queries.length) return;
+      const q = queries[i]!;
+      results[i] = await runCheckWithProviders(cachedProviders, {
+        query: q,
+        timeoutMs,
+        concurrency,
+      });
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(batchConcurrency, queries.length) },
+      () => worker(),
+    ),
+  );
+
+  return {
+    queries,
+    results,
+    totalMs: Date.now() - startedAt,
+  };
 }
