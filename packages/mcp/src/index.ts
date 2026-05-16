@@ -9,6 +9,7 @@ import {
   allProviders,
   checkRequestSchema,
   runCheck,
+  type CheckSummary,
   type ProviderResult,
 } from "@starter/shared";
 
@@ -157,17 +158,37 @@ function buildResourceLinks(results: ProviderResult[]): ResourceLinkBlock[] {
   return out;
 }
 
-function renderMarkdown(
-  results: ProviderResult[],
-  summary: { query: string; verdict: string; rollup: Record<string, number>; totalMs: number },
-): string {
+function renderMarkdown(results: ProviderResult[], summary: CheckSummary): string {
   const lines: string[] = [];
   lines.push(`# name-check: ${summary.query}`);
-  lines.push(`**Verdict:** ${summary.verdict} · ${summary.totalMs}ms · ${results.length} providers`);
+  lines.push(
+    `**Verdict:** ${summary.verdict} · **Score:** ${summary.score}/100 · ${summary.totalMs}ms · ${results.length} providers`,
+  );
   const r = summary.rollup;
   lines.push(
     `avail:${r.available ?? 0} · taken:${r.taken ?? 0} · part:${r.partial ?? 0} · check:${r.manual_verify ?? 0} · unkn:${r.unknown ?? 0} · err:${r.error ?? 0}`,
   );
+  if (summary.subverdicts) {
+    const cats: Array<keyof typeof summary.subverdicts> = [
+      "trademark",
+      "domain",
+      "social",
+      "appstore",
+      "package",
+      "code",
+    ];
+    lines.push(
+      cats.map((c) => `${c}:${summary.subverdicts[c]}`).join(" · "),
+    );
+  }
+  if (summary.scoreBreakdown && summary.scoreBreakdown.length > 0) {
+    const top = summary.scoreBreakdown
+      .slice()
+      .sort((a, b) => a.delta - b.delta)
+      .slice(0, 6);
+    lines.push("");
+    lines.push(`**Why:** ${top.map((e) => `${e.delta > 0 ? "+" : ""}${e.delta} ${e.reason}`).join("; ")}`);
+  }
   const byCat = new Map<string, ProviderResult[]>();
   for (const x of results) {
     const arr = byCat.get(x.category) ?? [];

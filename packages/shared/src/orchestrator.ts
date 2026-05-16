@@ -8,6 +8,7 @@ import type {
 } from "./types.js";
 import { allProviders } from "./providers/index.js";
 import { safeQuery } from "./normalize.js";
+import { scoreSummary } from "./scoring.js";
 
 const EMPTY_ROLLUP: Record<CheckStatus, number> = {
   available: 0,
@@ -92,6 +93,7 @@ export async function runCheckWithProviders(
 
   const finishedAtDate = new Date();
   const rollup = tally(results);
+  const { score, breakdown, subverdicts } = scoreSummary(results);
   return {
     query,
     startedAt: startedAtDate.toISOString(),
@@ -99,8 +101,17 @@ export async function runCheckWithProviders(
     totalMs: finishedAtDate.getTime() - startedAtDate.getTime(),
     results,
     rollup,
-    verdict: judge(rollup),
+    verdict: verdictFromScore(score),
+    score,
+    scoreBreakdown: breakdown,
+    subverdicts,
   };
+}
+
+function verdictFromScore(score: number): Verdict {
+  if (score >= 70) return "likely_available";
+  if (score >= 35) return "mixed";
+  return "likely_taken";
 }
 
 async function runOne(
@@ -140,10 +151,4 @@ function tally(results: ProviderResult[]): Record<CheckStatus, number> {
   const r: Record<CheckStatus, number> = { ...EMPTY_ROLLUP };
   for (const x of results) r[x.status]++;
   return r;
-}
-
-function judge(r: Record<CheckStatus, number>): Verdict {
-  if (r.taken > 0 || r.partial > 0) return "likely_taken";
-  if (r.available > 0 && r.taken === 0 && r.partial === 0) return "likely_available";
-  return "mixed";
 }

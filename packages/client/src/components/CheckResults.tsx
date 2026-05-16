@@ -6,9 +6,31 @@ import type {
   CheckSummary,
   ProviderCategory,
   ProviderResult,
+  Subverdict,
   Verdict,
 } from "@starter/shared";
 import { TrademarkDisclaimer } from "./Disclaimer";
+
+const SUBVERDICT_STYLE: Record<Subverdict, { label: string; cls: string }> = {
+  clear: {
+    label: "CLEAR",
+    cls: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300",
+  },
+  caution: {
+    label: "CAUTION",
+    cls: "bg-amber-500/10 text-amber-700 ring-amber-500/30 dark:text-amber-300",
+  },
+  blocked: {
+    label: "BLOCKED",
+    cls: "bg-rose-500/10 text-rose-700 ring-rose-500/30 dark:text-rose-300",
+  },
+};
+
+function scoreCls(score: number): string {
+  if (score >= 70) return "text-emerald-700 dark:text-emerald-300";
+  if (score >= 35) return "text-amber-700 dark:text-amber-300";
+  return "text-rose-700 dark:text-rose-300";
+}
 
 const STATUS_STYLE: Record<CheckStatus, { label: string; cls: string }> = {
   available: {
@@ -102,9 +124,11 @@ export function StatusBadge({ status }: { status: CheckStatus }): React.ReactEle
 export function VerdictBadge({
   verdict,
   rollup,
+  score,
 }: {
   verdict: Verdict;
   rollup: CheckSummary["rollup"];
+  score?: number;
 }): React.ReactElement {
   const s = VERDICT_STYLE[verdict];
   return (
@@ -113,12 +137,74 @@ export function VerdictBadge({
         avail:{rollup.available} · taken:{rollup.taken} · part:{rollup.partial} ·
         check:{rollup.manual_verify} · err:{rollup.error}
       </div>
+      {typeof score === "number" && (
+        <div
+          data-testid="score-badge"
+          className={`font-mono text-sm font-bold ${scoreCls(score)}`}
+        >
+          {score}/100
+        </div>
+      )}
       <span
         data-testid="verdict-badge"
         className={`rounded px-2 py-1 text-xs font-bold ring-1 ring-inset ${s.cls}`}
       >
         {s.label}
       </span>
+    </div>
+  );
+}
+
+export function SubverdictStrip({
+  subverdicts,
+  breakdown,
+}: {
+  subverdicts: Record<ProviderCategory, Subverdict>;
+  breakdown?: CheckSummary["scoreBreakdown"];
+}): React.ReactElement {
+  const topReasons = (breakdown ?? [])
+    .slice()
+    .sort((a, b) => a.delta - b.delta)
+    .slice(0, 4);
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border bg-card/60 p-3">
+      <div
+        data-testid="subverdict-strip"
+        className="flex flex-wrap items-center gap-2"
+      >
+        {CATEGORY_ORDER.map((c) => {
+          const v = subverdicts[c];
+          const style = SUBVERDICT_STYLE[v];
+          return (
+            <span
+              key={c}
+              data-testid={`subverdict-${c}`}
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-mono ring-1 ring-inset ${style.cls}`}
+            >
+              <span className="opacity-70">{CATEGORY_LABEL[c]}</span>
+              <span className="font-bold">{style.label}</span>
+            </span>
+          );
+        })}
+      </div>
+      {topReasons.length > 0 && (
+        <ul className="font-mono text-xs text-muted-foreground">
+          {topReasons.map((e, i) => (
+            <li key={`${e.providerId}-${i}`}>
+              <span
+                className={
+                  e.delta < 0
+                    ? "text-rose-700 dark:text-rose-300"
+                    : "text-emerald-700 dark:text-emerald-300"
+                }
+              >
+                {e.delta > 0 ? `+${e.delta}` : e.delta}
+              </span>{" "}
+              {e.reason}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -303,9 +389,20 @@ export function ResultsView({
             ) : null}
           </div>
           {summary && (
-            <VerdictBadge verdict={summary.verdict} rollup={summary.rollup} />
+            <VerdictBadge
+              verdict={summary.verdict}
+              rollup={summary.rollup}
+              score={summary.score}
+            />
           )}
         </div>
+      )}
+
+      {summary?.subverdicts && (
+        <SubverdictStrip
+          subverdicts={summary.subverdicts}
+          breakdown={summary.scoreBreakdown}
+        />
       )}
 
       {results.length > 0 && (

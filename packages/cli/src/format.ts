@@ -4,7 +4,24 @@ import type {
   ProviderResult,
   CheckSummary,
   ProviderCategory,
+  Subverdict,
 } from "@starter/shared";
+
+const SUBVERDICT_LABEL: Record<Subverdict, string> = {
+  clear: "CLEAR",
+  caution: "CAUTION",
+  blocked: "BLOCKED",
+};
+
+const SUBVERDICT_COLOR: Record<Subverdict, (s: string) => string> = {
+  clear: pc.green,
+  caution: pc.yellow,
+  blocked: pc.red,
+};
+
+function paintSubverdict(s: Subverdict): string {
+  return SUBVERDICT_COLOR[s](SUBVERDICT_LABEL[s]);
+}
 
 const STATUS_LABEL: Record<CheckStatus, string> = {
   available: "AVAIL",
@@ -88,7 +105,11 @@ export function formatSummary(summary: CheckSummary, showAll: boolean): string {
   );
 
   for (const [cat, items] of byCategory) {
-    lines.push(pc.bold(pc.underline(cat.toUpperCase())));
+    const sv = summary.subverdicts?.[cat as ProviderCategory];
+    const header = sv
+      ? `${pc.bold(pc.underline(cat.toUpperCase()))}  ${paintSubverdict(sv)}`
+      : pc.bold(pc.underline(cat.toUpperCase()));
+    lines.push(header);
     const visible = showAll
       ? items
       : items.filter((i) => i.status !== "unknown" || items.length < 5);
@@ -104,6 +125,37 @@ export function formatSummary(summary: CheckSummary, showAll: boolean): string {
     `  ${pc.green(`avail:${r.available}`)}  ${pc.red(`taken:${r.taken}`)}  ${pc.yellow(`part:${r.partial}`)}  ${pc.cyan(`check:${r.manual_verify}`)}  ${pc.gray(`unkn:${r.unknown}`)}  ${pc.magenta(`err:${r.error}`)}`,
   );
 
+  if (typeof summary.score === "number") {
+    lines.push("");
+    lines.push(pc.bold(`Score: ${paintScore(summary.score)}/100`));
+    if (summary.subverdicts) {
+      const cats: ProviderCategory[] = [
+        "trademark",
+        "domain",
+        "social",
+        "appstore",
+        "package",
+        "code",
+      ];
+      const cells = cats.map(
+        (c) => `${pc.gray(c)}:${paintSubverdict(summary.subverdicts[c])}`,
+      );
+      lines.push("  " + cells.join("  "));
+    }
+    if (summary.scoreBreakdown && summary.scoreBreakdown.length > 0) {
+      const top = summary.scoreBreakdown
+        .slice()
+        .sort((a, b) => a.delta - b.delta)
+        .slice(0, 6);
+      lines.push(pc.gray("  why:"));
+      for (const e of top) {
+        const sign = e.delta > 0 ? `+${e.delta}` : `${e.delta}`;
+        const colored = e.delta < 0 ? pc.red(sign) : pc.green(sign);
+        lines.push(`    ${colored}  ${pc.gray(e.reason)}`);
+      }
+    }
+  }
+
   const verdict =
     summary.verdict === "likely_available"
       ? pc.green("LIKELY AVAILABLE")
@@ -114,6 +166,12 @@ export function formatSummary(summary: CheckSummary, showAll: boolean): string {
   lines.push(pc.bold(`Verdict: ${verdict}`));
   lines.push("");
   return lines.join("\n");
+}
+
+function paintScore(score: number): string {
+  if (score >= 70) return pc.green(String(score));
+  if (score >= 35) return pc.yellow(String(score));
+  return pc.red(String(score));
 }
 
 function csvField(v: string | number | undefined): string {
@@ -149,12 +207,25 @@ export function formatMarkdown(summary: CheckSummary): string {
   const lines: string[] = [];
   lines.push(`# name-check: ${summary.query}`);
   lines.push(
-    `**Verdict:** ${summary.verdict} · ${summary.totalMs}ms · ${summary.results.length} providers`,
+    `**Verdict:** ${summary.verdict} · **Score:** ${summary.score}/100 · ${summary.totalMs}ms · ${summary.results.length} providers`,
   );
   const r = summary.rollup;
   lines.push(
     `avail:${r.available} · taken:${r.taken} · part:${r.partial} · check:${r.manual_verify} · unkn:${r.unknown} · err:${r.error}`,
   );
+  if (summary.subverdicts) {
+    const cats: ProviderCategory[] = [
+      "trademark",
+      "domain",
+      "social",
+      "appstore",
+      "package",
+      "code",
+    ];
+    lines.push(
+      cats.map((c) => `${c}:${summary.subverdicts[c]}`).join(" · "),
+    );
+  }
 
   const byCat = new Map<ProviderCategory, ProviderResult[]>();
   for (const x of summary.results) {

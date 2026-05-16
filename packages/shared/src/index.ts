@@ -15,3 +15,5 @@ export type {
   AvailabilityResult,
 } from "./passport/types.js";
 export { PASSPORT_PLATFORMS, PLATFORM_LABEL } from "./passport/types.js";
+export { scoreSummary } from "./scoring.js";
+export type { ScoreResult } from "./scoring.js";

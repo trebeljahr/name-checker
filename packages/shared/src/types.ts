@@ -55,6 +55,14 @@ export type CheckRequest = {
 
 export type Verdict = "likely_available" | "likely_taken" | "mixed";
 
+export type Subverdict = "clear" | "caution" | "blocked";
+
+export type ScoreBreakdownEntry = {
+  providerId: string;
+  delta: number;
+  reason: string;
+};
+
 export type CheckSummary = {
   query: string;
   startedAt: string;
@@ -63,4 +71,7 @@ export type CheckSummary = {
   results: ProviderResult[];
   rollup: Record<CheckStatus, number>;
   verdict: Verdict;
+  score: number;
+  scoreBreakdown: ScoreBreakdownEntry[];
+  subverdicts: Record<ProviderCategory, Subverdict>;
 };
