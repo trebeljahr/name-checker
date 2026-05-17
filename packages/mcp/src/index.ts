@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
   allProviders,
@@ -30,6 +31,15 @@ const DEFAULT_REQUIRED_PROVIDERS = [
 
 const VARIANT_QUICK_PROVIDERS = DEFAULT_REQUIRED_PROVIDERS;
 
+const CATEGORY_ENUM = [
+  "trademark",
+  "domain",
+  "social",
+  "appstore",
+  "package",
+  "code",
+] as const;
+
 const server = new Server(
   { name: "name-check-mcp", version: "0.1.0" },
   { capabilities: { tools: {} } },
@@ -49,14 +59,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "array",
             items: {
               type: "string",
-              enum: [
-                "trademark",
-                "domain",
-                "social",
-                "appstore",
-                "package",
-                "code",
-              ],
+              enum: [...CATEGORY_ENUM],
             },
             description: "Limit to these provider categories.",
           },
@@ -92,14 +95,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "array",
             items: {
               type: "string",
-              enum: [
-                "trademark",
-                "domain",
-                "social",
-                "appstore",
-                "package",
-                "code",
-              ],
+              enum: [...CATEGORY_ENUM],
             },
             description: "Limit to these provider categories.",
           },
@@ -136,14 +132,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "array",
             items: {
               type: "string",
-              enum: [
-                "trademark",
-                "domain",
-                "social",
-                "appstore",
-                "package",
-                "code",
-              ],
+              enum: [...CATEGORY_ENUM],
             },
             description: "Limit to these provider categories.",
           },
@@ -186,14 +175,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             type: "array",
             items: {
               type: "string",
-              enum: [
-                "trademark",
-                "domain",
-                "social",
-                "appstore",
-                "package",
-                "code",
-              ],
+              enum: [...CATEGORY_ENUM],
             },
             description:
               "Categories where every provider in the category must return status=available.",
@@ -242,273 +224,264 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   ],
 }));
 
-server.setRequestHandler(CallToolRequestSchema, async (req) => {
-  if (req.params.name === "list_providers") {
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(
-            allProviders.map((p) => ({
-              id: p.id,
-              name: p.name,
-              category: p.category,
-              description: p.description,
-            })),
-            null,
-            2,
-          ),
-        },
-      ],
-    };
-  }
+type ToolHandler = (args: unknown) => Promise<CallToolResult>;
 
-  if (req.params.name === "check_name") {
-    const parsed = checkRequestSchema.safeParse(req.params.arguments ?? {});
-    if (!parsed.success) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: `Invalid arguments: ${parsed.error.message}`,
-          },
-        ],
-      };
-    }
-    const summary = await runCheck(parsed.data);
-    const markdown = renderMarkdown(summary.results, summary);
-    const resourceLinks = buildResourceLinks(summary.results);
-    return {
-      content: [
-        { type: "text", text: markdown },
-        ...resourceLinks,
-        { type: "text", text: JSON.stringify(summary, null, 2) },
-      ],
-    };
-  }
-
-  if (req.params.name === "check_batch") {
-    const parsed = batchCheckRequestSchema.safeParse(req.params.arguments ?? {});
-    if (!parsed.success) {
-      return {
-        isError: true,
-        content: [
-          { type: "text", text: `Invalid arguments: ${parsed.error.message}` },
-        ],
-      };
-    }
-    const batch = await runCheckBatch(parsed.data);
-    const markdown = renderBatchMarkdown(batch.queries, batch.results, batch.totalMs);
-    return {
-      content: [
-        { type: "text", text: markdown },
-        { type: "text", text: JSON.stringify(batch, null, 2) },
-      ],
-    };
-  }
-
-  if (req.params.name === "compare_names") {
-    const parsed = compareRequestSchema.safeParse(req.params.arguments ?? {});
-    if (!parsed.success) {
-      return {
-        isError: true,
-        content: [
-          { type: "text", text: `Invalid arguments: ${parsed.error.message}` },
-        ],
-      };
-    }
-    if (parsed.data.queries.length < 2) {
-      return {
-        isError: true,
-        content: [
-          { type: "text", text: "compare_names requires at least 2 queries." },
-        ],
-      };
-    }
-    const batch = await runCheckBatch(parsed.data);
-    const queries = batch.queries;
-    const results = batch.results;
-    let winnerIndex = 0;
-    for (let i = 1; i < results.length; i++) {
-      if (results[i]!.score > results[winnerIndex]!.score) winnerIndex = i;
-    }
-    const markdown = renderCompareMarkdown(
-      queries,
-      results,
-      winnerIndex,
-      batch.totalMs,
-    );
-    return {
-      content: [
-        { type: "text", text: markdown },
-        {
-          type: "text",
-          text: JSON.stringify(
-            {
-              queries,
-              results,
-              totalMs: batch.totalMs,
-              winner: queries[winnerIndex],
-              scores: results.map((r) => r.score),
-            },
-            null,
-            2,
-          ),
-        },
-      ],
-    };
-  }
-
-  if (req.params.name === "find_free_names") {
-    const parsed = findFreeNamesRequestSchema.safeParse(req.params.arguments ?? {});
-    if (!parsed.success) {
-      return {
-        isError: true,
-        content: [
-          { type: "text", text: `Invalid arguments: ${parsed.error.message}` },
-        ],
-      };
-    }
-    const args = parsed.data;
-    const requiredProviders =
-      args.requireAvailableProviders && args.requireAvailableProviders.length > 0
-        ? args.requireAvailableProviders
-        : args.requireAvailableCategories && args.requireAvailableCategories.length > 0
-          ? []
-          : DEFAULT_REQUIRED_PROVIDERS;
-    const requiredCategories: ProviderCategory[] = args.requireAvailableCategories ?? [];
-
-    const knownProviderIds = new Set(allProviders.map((p) => p.id));
-    const unknownRequired = requiredProviders.filter(
-      (id) => !knownProviderIds.has(id),
-    );
-    if (unknownRequired.length > 0) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: `Unknown provider ids: ${unknownRequired.join(", ")}. Use list_providers to see valid ids.`,
-          },
-        ],
-      };
-    }
-
-    const categoryIds = new Set(
-      allProviders
-        .filter((p) => requiredCategories.includes(p.category))
-        .map((p) => p.id),
-    );
-    const runProviderIds = Array.from(
-      new Set([...requiredProviders, ...categoryIds]),
-    );
-
-    const batch = await runCheckBatch({
-      queries: args.queries,
-      providers: runProviderIds,
-      timeoutMs: args.timeoutMs,
-      concurrency: args.concurrency,
-      batchConcurrency: args.batchConcurrency,
-    });
-
-    const freeNames = batch.results
-      .filter((s) =>
-        isFreeEverywhere(s, requiredProviders, requiredCategories),
-      )
-      .map((s) => s.query);
-
-    const result: FreeAnywhereResult = {
-      freeNames,
-      requiredProviders,
-      requiredCategories,
-      allResults: batch.results,
-      totalMs: batch.totalMs,
-    };
-    const markdown = renderFreeNamesMarkdown(
-      batch.queries,
-      batch.results,
-      freeNames,
-      requiredProviders,
-      requiredCategories,
-      batch.totalMs,
-    );
-    return {
-      content: [
-        { type: "text", text: markdown },
-        { type: "text", text: JSON.stringify(result, null, 2) },
-      ],
-    };
-  }
-
-  if (req.params.name === "suggest_variants") {
-    const args = (req.params.arguments ?? {}) as {
-      query?: unknown;
-      count?: unknown;
-      runChecks?: unknown;
-      includeMutations?: unknown;
-      includeCompounds?: unknown;
-    };
-    if (typeof args.query !== "string" || !args.query.trim()) {
-      return {
-        isError: true,
-        content: [
-          { type: "text", text: "Invalid arguments: 'query' must be a non-empty string." },
-        ],
-      };
-    }
-    const count = typeof args.count === "number" ? args.count : 20;
-    const runChecks = args.runChecks === true;
-    const suggestions = suggestVariants(args.query, {
-      count,
-      includeMutations: args.includeMutations === true,
-      includeCompounds: args.includeCompounds !== false,
-    });
-    if (!runChecks || suggestions.length === 0) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              { query: args.query, suggestions, runChecks },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
-    }
-    const batch = await runCheckBatch({
-      queries: suggestions,
-      providers: VARIANT_QUICK_PROVIDERS,
-    });
-    const survivors = batch.results
-      .filter((s) => isFreeEverywhere(s, VARIANT_QUICK_PROVIDERS, []))
-      .map((s) => s.query);
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(
-            {
-              query: args.query,
-              providers: VARIANT_QUICK_PROVIDERS,
-              suggestions,
-              survivors,
-              totalMs: batch.totalMs,
-            },
-            null,
-            2,
-          ),
-        },
-      ],
-    };
-  }
-
+function invalidArgs(message: string): CallToolResult {
   return {
     isError: true,
-    content: [{ type: "text", text: `Unknown tool: ${req.params.name}` }],
+    content: [{ type: "text", text: `Invalid arguments: ${message}` }],
   };
+}
+
+async function handleListProviders(): Promise<CallToolResult> {
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(
+          allProviders.map((p) => ({
+            id: p.id,
+            name: p.name,
+            category: p.category,
+            description: p.description,
+          })),
+          null,
+          2,
+        ),
+      },
+    ],
+  };
+}
+
+async function handleCheckName(args: unknown): Promise<CallToolResult> {
+  const parsed = checkRequestSchema.safeParse(args ?? {});
+  if (!parsed.success) return invalidArgs(parsed.error.message);
+  const summary = await runCheck(parsed.data);
+  const markdown = renderMarkdown(summary.results, summary);
+  const resourceLinks = buildResourceLinks(summary.results);
+  return {
+    content: [
+      { type: "text", text: markdown },
+      ...resourceLinks,
+      { type: "text", text: JSON.stringify(summary, null, 2) },
+    ],
+  };
+}
+
+async function handleCheckBatch(args: unknown): Promise<CallToolResult> {
+  const parsed = batchCheckRequestSchema.safeParse(args ?? {});
+  if (!parsed.success) return invalidArgs(parsed.error.message);
+  const batch = await runCheckBatch(parsed.data);
+  const markdown = renderBatchMarkdown(batch.queries, batch.results, batch.totalMs);
+  return {
+    content: [
+      { type: "text", text: markdown },
+      { type: "text", text: JSON.stringify(batch, null, 2) },
+    ],
+  };
+}
+
+async function handleCompareNames(args: unknown): Promise<CallToolResult> {
+  const parsed = compareRequestSchema.safeParse(args ?? {});
+  if (!parsed.success) return invalidArgs(parsed.error.message);
+  if (parsed.data.queries.length < 2) {
+    return {
+      isError: true,
+      content: [
+        { type: "text", text: "compare_names requires at least 2 queries." },
+      ],
+    };
+  }
+  const batch = await runCheckBatch(parsed.data);
+  const queries = batch.queries;
+  const results = batch.results;
+  let winnerIndex = 0;
+  for (let i = 1; i < results.length; i++) {
+    if (results[i]!.score > results[winnerIndex]!.score) winnerIndex = i;
+  }
+  const markdown = renderCompareMarkdown(
+    queries,
+    results,
+    winnerIndex,
+    batch.totalMs,
+  );
+  return {
+    content: [
+      { type: "text", text: markdown },
+      {
+        type: "text",
+        text: JSON.stringify(
+          {
+            queries,
+            results,
+            totalMs: batch.totalMs,
+            winner: queries[winnerIndex],
+            scores: results.map((r) => r.score),
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
+}
+
+function requireAvailableProviders(
+  explicit: string[] | undefined,
+  categories: ProviderCategory[] | undefined,
+): string[] {
+  if (explicit && explicit.length > 0) return explicit;
+  if (categories && categories.length > 0) return [];
+  return DEFAULT_REQUIRED_PROVIDERS;
+}
+
+async function handleFindFreeNames(args: unknown): Promise<CallToolResult> {
+  const parsed = findFreeNamesRequestSchema.safeParse(args ?? {});
+  if (!parsed.success) return invalidArgs(parsed.error.message);
+  const data = parsed.data;
+  const requiredProviders = requireAvailableProviders(
+    data.requireAvailableProviders,
+    data.requireAvailableCategories,
+  );
+  const requiredCategories: ProviderCategory[] = data.requireAvailableCategories ?? [];
+
+  const knownProviderIds = new Set(allProviders.map((p) => p.id));
+  const unknownRequired = requiredProviders.filter(
+    (id) => !knownProviderIds.has(id),
+  );
+  if (unknownRequired.length > 0) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: `Unknown provider ids: ${unknownRequired.join(", ")}. Use list_providers to see valid ids.`,
+        },
+      ],
+    };
+  }
+
+  const categoryIds = new Set(
+    allProviders
+      .filter((p) => requiredCategories.includes(p.category))
+      .map((p) => p.id),
+  );
+  const runProviderIds = Array.from(
+    new Set([...requiredProviders, ...categoryIds]),
+  );
+
+  const batch = await runCheckBatch({
+    queries: data.queries,
+    providers: runProviderIds,
+    timeoutMs: data.timeoutMs,
+    concurrency: data.concurrency,
+    batchConcurrency: data.batchConcurrency,
+  });
+
+  const freeNames = batch.results
+    .filter((s) => isFreeEverywhere(s, requiredProviders, requiredCategories))
+    .map((s) => s.query);
+
+  const result: FreeAnywhereResult = {
+    freeNames,
+    requiredProviders,
+    requiredCategories,
+    allResults: batch.results,
+    totalMs: batch.totalMs,
+  };
+  const markdown = renderFreeNamesMarkdown(
+    batch.queries,
+    batch.results,
+    freeNames,
+    requiredProviders,
+    requiredCategories,
+    batch.totalMs,
+  );
+  return {
+    content: [
+      { type: "text", text: markdown },
+      { type: "text", text: JSON.stringify(result, null, 2) },
+    ],
+  };
+}
+
+async function handleSuggestVariants(args: unknown): Promise<CallToolResult> {
+  const a = (args ?? {}) as {
+    query?: unknown;
+    count?: unknown;
+    runChecks?: unknown;
+    includeMutations?: unknown;
+    includeCompounds?: unknown;
+  };
+  if (typeof a.query !== "string" || !a.query.trim()) {
+    return invalidArgs("'query' must be a non-empty string.");
+  }
+  const count = typeof a.count === "number" ? a.count : 20;
+  const runChecks = a.runChecks === true;
+  const suggestions = suggestVariants(a.query, {
+    count,
+    includeMutations: a.includeMutations === true,
+    includeCompounds: a.includeCompounds !== false,
+  });
+  if (!runChecks || suggestions.length === 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            { query: a.query, suggestions, runChecks },
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  }
+  const batch = await runCheckBatch({
+    queries: suggestions,
+    providers: VARIANT_QUICK_PROVIDERS,
+  });
+  const survivors = batch.results
+    .filter((s) => isFreeEverywhere(s, VARIANT_QUICK_PROVIDERS, []))
+    .map((s) => s.query);
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(
+          {
+            query: a.query,
+            providers: VARIANT_QUICK_PROVIDERS,
+            suggestions,
+            survivors,
+            totalMs: batch.totalMs,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
+}
+
+const HANDLERS: Record<string, ToolHandler> = {
+  list_providers: handleListProviders,
+  check_name: handleCheckName,
+  check_batch: handleCheckBatch,
+  compare_names: handleCompareNames,
+  find_free_names: handleFindFreeNames,
+  suggest_variants: handleSuggestVariants,
+};
+
+server.setRequestHandler(CallToolRequestSchema, async (req) => {
+  const handler = HANDLERS[req.params.name];
+  if (!handler) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: `Unknown tool: ${req.params.name}` }],
+    };
+  }
+  return handler(req.params.arguments ?? {});
 });
 
 function isFreeEverywhere(
@@ -599,7 +572,7 @@ function renderFreeNamesMarkdown(
 type ResourceLinkBlock = {
   type: "resource_link";
   uri: string;
-  name?: string;
+  name: string;
   description?: string;
 };
 
