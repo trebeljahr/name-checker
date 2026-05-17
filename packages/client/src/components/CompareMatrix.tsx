@@ -8,14 +8,20 @@ import type {
   ProviderResult,
   Verdict,
 } from "@starter/shared";
+import { STATUS_LONG_LABEL } from "@starter/shared/constants";
+import {
+  CATEGORY_LABEL_LONG as CATEGORY_LABEL,
+  CATEGORY_ORDER,
+  VERDICT_STYLE_SHORT as VERDICT_STYLE,
+} from "@/lib/ui-constants";
 
 const STATUS_CELL: Record<CheckStatus, { bg: string; label: string }> = {
-  available: { bg: "bg-emerald-500", label: "AVAILABLE" },
-  taken: { bg: "bg-rose-500", label: "TAKEN" },
-  partial: { bg: "bg-amber-500", label: "PARTIAL" },
-  manual_verify: { bg: "bg-sky-500", label: "VERIFY" },
-  unknown: { bg: "bg-zinc-400 dark:bg-zinc-600", label: "UNKNOWN" },
-  error: { bg: "bg-fuchsia-500", label: "ERROR" },
+  available: { bg: "bg-emerald-500", label: STATUS_LONG_LABEL.available },
+  taken: { bg: "bg-rose-500", label: STATUS_LONG_LABEL.taken },
+  partial: { bg: "bg-amber-500", label: STATUS_LONG_LABEL.partial },
+  manual_verify: { bg: "bg-sky-500", label: STATUS_LONG_LABEL.manual_verify },
+  unknown: { bg: "bg-zinc-400 dark:bg-zinc-600", label: STATUS_LONG_LABEL.unknown },
+  error: { bg: "bg-fuchsia-500", label: STATUS_LONG_LABEL.error },
 };
 
 const STATUS_PRIORITY: Record<CheckStatus, number> = {
@@ -35,42 +41,6 @@ const STATUS_SORT_KEY: Record<CheckStatus, number> = {
   unknown: 4,
   available: 5,
 };
-
-const VERDICT_STYLE: Record<
-  Verdict,
-  { label: string; cls: string }
-> = {
-  likely_available: {
-    label: "AVAIL",
-    cls: "bg-emerald-500/15 text-emerald-700 ring-emerald-500/40 dark:text-emerald-300",
-  },
-  likely_taken: {
-    label: "TAKEN",
-    cls: "bg-rose-500/15 text-rose-700 ring-rose-500/40 dark:text-rose-300",
-  },
-  mixed: {
-    label: "MIXED",
-    cls: "bg-amber-500/15 text-amber-700 ring-amber-500/40 dark:text-amber-300",
-  },
-};
-
-const CATEGORY_LABEL: Record<ProviderCategory, string> = {
-  trademark: "Trademarks",
-  domain: "Domains",
-  social: "Social handles",
-  appstore: "App stores",
-  package: "Package registries",
-  code: "Code hosts",
-};
-
-const CATEGORY_ORDER: ProviderCategory[] = [
-  "trademark",
-  "domain",
-  "social",
-  "appstore",
-  "package",
-  "code",
-];
 
 type ProviderDescriptor = {
   id: string;

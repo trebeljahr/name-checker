@@ -1,17 +1,14 @@
 import pc from "picocolors";
-import type {
-  CheckStatus,
-  ProviderResult,
-  CheckSummary,
-  ProviderCategory,
-  Subverdict,
+import {
+  CATEGORIES,
+  STATUS_SHORT_LABEL,
+  SUBVERDICT_LABEL,
+  type CheckStatus,
+  type ProviderResult,
+  type CheckSummary,
+  type ProviderCategory,
+  type Subverdict,
 } from "@starter/shared";
-
-const SUBVERDICT_LABEL: Record<Subverdict, string> = {
-  clear: "CLEAR",
-  caution: "CAUTION",
-  blocked: "BLOCKED",
-};
 
 const SUBVERDICT_COLOR: Record<Subverdict, (s: string) => string> = {
   clear: pc.green,
@@ -22,15 +19,6 @@ const SUBVERDICT_COLOR: Record<Subverdict, (s: string) => string> = {
 function paintSubverdict(s: Subverdict): string {
   return SUBVERDICT_COLOR[s](SUBVERDICT_LABEL[s]);
 }
-
-const STATUS_LABEL: Record<CheckStatus, string> = {
-  available: "AVAIL",
-  taken: "TAKEN",
-  partial: "PART ",
-  manual_verify: "CHECK",
-  unknown: "UNKN ",
-  error: "ERROR",
-};
 
 const STATUS_COLOR: Record<CheckStatus, (s: string) => string> = {
   available: pc.green,
@@ -44,7 +32,7 @@ const STATUS_COLOR: Record<CheckStatus, (s: string) => string> = {
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 
 export function paintStatus(s: CheckStatus): string {
-  return STATUS_COLOR[s](STATUS_LABEL[s]);
+  return STATUS_COLOR[s](STATUS_SHORT_LABEL[s]);
 }
 
 export function getTermWidth(): number {
@@ -129,14 +117,7 @@ export function formatSummary(summary: CheckSummary, showAll: boolean): string {
     lines.push("");
     lines.push(pc.bold(`Score: ${paintScore(summary.score)}/100`));
     if (summary.subverdicts) {
-      const cats: ProviderCategory[] = [
-        "trademark",
-        "domain",
-        "social",
-        "appstore",
-        "package",
-        "code",
-      ];
+      const cats = CATEGORIES;
       const cells = cats.map(
         (c) => `${pc.gray(c)}:${paintSubverdict(summary.subverdicts[c])}`,
       );
@@ -214,16 +195,8 @@ export function formatMarkdown(summary: CheckSummary): string {
     `avail:${r.available} · taken:${r.taken} · part:${r.partial} · check:${r.manual_verify} · unkn:${r.unknown} · err:${r.error}`,
   );
   if (summary.subverdicts) {
-    const cats: ProviderCategory[] = [
-      "trademark",
-      "domain",
-      "social",
-      "appstore",
-      "package",
-      "code",
-    ];
     lines.push(
-      cats.map((c) => `${c}:${summary.subverdicts[c]}`).join(" · "),
+      CATEGORIES.map((c) => `${c}:${summary.subverdicts[c]}`).join(" · "),
     );
   }
 

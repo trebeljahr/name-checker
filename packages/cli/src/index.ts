@@ -2,8 +2,10 @@
 import pc from "picocolors";
 import {
   allProviders,
+  DEFAULT_VARIANT_PROVIDERS,
   runCheck,
   suggestVariants,
+  VERDICT_SHORT_LABEL,
   type CheckRequest,
   type CheckSummary,
   type ProviderResult,
@@ -122,8 +124,6 @@ async function main(): Promise<number> {
   return verdictHasFailure(summaries) ? 1 : 0;
 }
 
-const VARIANT_PROVIDERS = ["domain-com", "npm", "github-user", "bluesky"];
-
 async function runVariantChecks(
   query: string,
   count: number,
@@ -136,7 +136,7 @@ async function runVariantChecks(
     suggestions.map((name) =>
       runCheck({
         query: name,
-        providers: VARIANT_PROVIDERS,
+        providers: [...DEFAULT_VARIANT_PROVIDERS],
         timeoutMs,
         concurrency,
       }),
@@ -144,14 +144,8 @@ async function runVariantChecks(
   );
 }
 
-const VERDICT_SHORT: Record<Verdict, string> = {
-  likely_available: "AVAIL",
-  likely_taken: "TAKEN",
-  mixed: "MIXED",
-};
-
 function paintVariantVerdict(v: Verdict, color: boolean): string {
-  const label = VERDICT_SHORT[v];
+  const label = VERDICT_SHORT_LABEL[v];
   if (!color) return label;
   if (v === "likely_available") return pc.green(label);
   if (v === "likely_taken") return pc.red(label);
@@ -170,7 +164,7 @@ function formatVariants(
       ? pc.bold(`Similar names for ${pc.cyan(query)}`)
       : `Similar names for ${query}`,
   );
-  const subtitle = `(${VARIANT_PROVIDERS.join(", ")}) — ${variants.length} candidates`;
+  const subtitle = `(${DEFAULT_VARIANT_PROVIDERS.join(", ")}) — ${variants.length} candidates`;
   lines.push(color ? pc.gray(subtitle) : subtitle);
   lines.push("");
   const maxName = Math.max(...variants.map((v) => v.query.length), 4);

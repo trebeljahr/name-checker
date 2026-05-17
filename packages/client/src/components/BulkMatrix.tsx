@@ -8,6 +8,12 @@ import type {
   ProviderResult,
   Verdict,
 } from "@starter/shared";
+import {
+  CATEGORY_LABEL_SHORT as CATEGORY_LABEL,
+  CATEGORY_ORDER,
+  STATUS_DOT,
+  VERDICT_STYLE_SHORT as VERDICT_STYLE,
+} from "@/lib/ui-constants";
 
 export type BulkRow = {
   query: string;
@@ -15,48 +21,6 @@ export type BulkRow = {
   summary: CheckSummary | null;
   results: ProviderResult[];
   done: boolean;
-};
-
-const CATEGORY_ORDER: ProviderCategory[] = [
-  "trademark",
-  "domain",
-  "social",
-  "appstore",
-  "package",
-  "code",
-];
-
-const CATEGORY_LABEL: Record<ProviderCategory, string> = {
-  trademark: "Trademarks",
-  domain: "Domains",
-  social: "Social",
-  appstore: "App stores",
-  package: "Packages",
-  code: "Code",
-};
-
-const VERDICT_STYLE: Record<Verdict, { label: string; cls: string }> = {
-  likely_available: {
-    label: "AVAILABLE",
-    cls: "bg-emerald-500/15 text-emerald-700 ring-emerald-500/40 dark:text-emerald-300",
-  },
-  likely_taken: {
-    label: "TAKEN",
-    cls: "bg-rose-500/15 text-rose-700 ring-rose-500/40 dark:text-rose-300",
-  },
-  mixed: {
-    label: "MIXED",
-    cls: "bg-amber-500/15 text-amber-700 ring-amber-500/40 dark:text-amber-300",
-  },
-};
-
-const STATUS_DOT: Record<CheckStatus, { glyph: string; cls: string; label: string }> = {
-  taken: { glyph: "●", cls: "text-rose-600 dark:text-rose-400", label: "taken" },
-  partial: { glyph: "●", cls: "text-amber-600 dark:text-amber-400", label: "partial" },
-  manual_verify: { glyph: "●", cls: "text-sky-600 dark:text-sky-400", label: "verify" },
-  unknown: { glyph: "●", cls: "text-zinc-500 dark:text-zinc-500", label: "unknown" },
-  available: { glyph: "●", cls: "text-emerald-600 dark:text-emerald-400", label: "available" },
-  error: { glyph: "●", cls: "text-fuchsia-600 dark:text-fuchsia-400", label: "error" },
 };
 
 type SortKey = "name" | "verdict" | "domain" | "trademark";

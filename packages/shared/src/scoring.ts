@@ -1,3 +1,4 @@
+import { CATEGORIES } from "./constants.js";
 import type {
   ProviderCategory,
   ProviderResult,
@@ -16,50 +17,41 @@ const SOCIAL_BIG = new Set(["x", "instagram", "youtube", "tiktok"]);
 const SOCIAL_BIG_CAP = -12;
 const PRIMARY_BRAND_TLDS = new Set(["io", "ai", "gg", "dev"]);
 const OFF_BRAND_TLDS = new Set(["fun", "lol"]);
-const ALL_CATEGORIES: ProviderCategory[] = [
-  "trademark",
-  "domain",
-  "social",
-  "appstore",
-  "package",
-  "code",
-];
+
+type CategoryScorer = (
+  results: ProviderResult[],
+  breakdown: ScoreBreakdownEntry[],
+) => number;
 
 export function scoreSummary(results: ProviderResult[]): ScoreResult {
   const breakdown: ScoreBreakdownEntry[] = [];
   let score = STARTING_SCORE;
 
   const byCategory = groupByCategory(results);
-  const deltaByCategory: Record<ProviderCategory, number> = {
-    trademark: 0,
-    domain: 0,
-    social: 0,
-    appstore: 0,
-    package: 0,
-    code: 0,
+
+  const SCORERS: Record<ProviderCategory, CategoryScorer> = {
+    trademark: scoreTrademark,
+    domain: scoreDomain,
+    social: scoreSocial,
+    appstore: scoreAppstore,
+    package: scorePackage,
+    code: scoreCode,
   };
 
-  deltaByCategory.trademark = scoreTrademark(byCategory.trademark, breakdown);
-  deltaByCategory.domain = scoreDomain(byCategory.domain, breakdown);
-  deltaByCategory.social = scoreSocial(byCategory.social, breakdown);
-  deltaByCategory.appstore = scoreAppstore(byCategory.appstore, breakdown);
-  deltaByCategory.package = scorePackage(byCategory.package, breakdown);
-  deltaByCategory.code = scoreCode(byCategory.code, breakdown);
+  const deltaByCategory = {} as Record<ProviderCategory, number>;
+  const subverdicts = {} as Record<ProviderCategory, Subverdict>;
 
-  for (const cat of ALL_CATEGORIES) score += deltaByCategory[cat];
+  for (const cat of CATEGORIES) {
+    deltaByCategory[cat] = SCORERS[cat](byCategory[cat], breakdown);
+    score += deltaByCategory[cat];
+  }
 
   score += applyBonuses(byCategory, breakdown);
-
   score = Math.max(0, Math.min(100, score));
 
-  const subverdicts: Record<ProviderCategory, Subverdict> = {
-    trademark: subverdictFor(byCategory.trademark, deltaByCategory.trademark),
-    domain: subverdictFor(byCategory.domain, deltaByCategory.domain),
-    social: subverdictFor(byCategory.social, deltaByCategory.social),
-    appstore: subverdictFor(byCategory.appstore, deltaByCategory.appstore),
-    package: subverdictFor(byCategory.package, deltaByCategory.package),
-    code: subverdictFor(byCategory.code, deltaByCategory.code),
-  };
+  for (const cat of CATEGORIES) {
+    subverdicts[cat] = subverdictFor(byCategory[cat], deltaByCategory[cat]);
+  }
 
   return { score, breakdown, subverdicts };
 }
@@ -67,14 +59,8 @@ export function scoreSummary(results: ProviderResult[]): ScoreResult {
 function groupByCategory(
   results: ProviderResult[],
 ): Record<ProviderCategory, ProviderResult[]> {
-  const out: Record<ProviderCategory, ProviderResult[]> = {
-    trademark: [],
-    domain: [],
-    social: [],
-    appstore: [],
-    package: [],
-    code: [],
-  };
+  const out = {} as Record<ProviderCategory, ProviderResult[]>;
+  for (const cat of CATEGORIES) out[cat] = [];
   for (const r of results) out[r.category].push(r);
   return out;
 }

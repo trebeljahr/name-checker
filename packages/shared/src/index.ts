@@ -1,5 +1,15 @@
 export * from "./types.js";
 export * from "./schemas.js";
+export {
+  CATEGORIES,
+  ALL_STATUSES,
+  VERDICT_SHORT_LABEL,
+  VERDICT_LONG_LABEL,
+  STATUS_LONG_LABEL,
+  STATUS_SHORT_LABEL,
+  SUBVERDICT_LABEL,
+  DEFAULT_VARIANT_PROVIDERS,
+} from "./constants.js";
 export * from "./normalize.js";
 export { fetchWithTimeout } from "./http.js";
 export {

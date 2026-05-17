@@ -9,97 +9,21 @@ import type {
   Subverdict,
   Verdict,
 } from "@starter/shared";
+import { ALL_STATUSES } from "@starter/shared/constants";
 import { TrademarkDisclaimer } from "./Disclaimer";
-
-const SUBVERDICT_STYLE: Record<Subverdict, { label: string; cls: string }> = {
-  clear: {
-    label: "CLEAR",
-    cls: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300",
-  },
-  caution: {
-    label: "CAUTION",
-    cls: "bg-amber-500/10 text-amber-700 ring-amber-500/30 dark:text-amber-300",
-  },
-  blocked: {
-    label: "BLOCKED",
-    cls: "bg-rose-500/10 text-rose-700 ring-rose-500/30 dark:text-rose-300",
-  },
-};
+import {
+  CATEGORY_LABEL_LONG as CATEGORY_LABEL,
+  CATEGORY_ORDER,
+  STATUS_STYLE,
+  SUBVERDICT_STYLE,
+  VERDICT_STYLE_LONG as VERDICT_STYLE,
+} from "@/lib/ui-constants";
 
 function scoreCls(score: number): string {
   if (score >= 70) return "text-emerald-700 dark:text-emerald-300";
   if (score >= 35) return "text-amber-700 dark:text-amber-300";
   return "text-rose-700 dark:text-rose-300";
 }
-
-const STATUS_STYLE: Record<CheckStatus, { label: string; cls: string }> = {
-  available: {
-    label: "AVAILABLE",
-    cls: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300",
-  },
-  taken: {
-    label: "TAKEN",
-    cls: "bg-rose-500/10 text-rose-700 ring-rose-500/30 dark:text-rose-300",
-  },
-  partial: {
-    label: "PARTIAL",
-    cls: "bg-amber-500/10 text-amber-700 ring-amber-500/30 dark:text-amber-300",
-  },
-  manual_verify: {
-    label: "VERIFY",
-    cls: "bg-sky-500/10 text-sky-700 ring-sky-500/30 dark:text-sky-300",
-  },
-  unknown: {
-    label: "UNKNOWN",
-    cls: "bg-zinc-500/10 text-zinc-600 ring-zinc-500/30 dark:text-zinc-400",
-  },
-  error: {
-    label: "ERROR",
-    cls: "bg-fuchsia-500/10 text-fuchsia-700 ring-fuchsia-500/30 dark:text-fuchsia-300",
-  },
-};
-
-const VERDICT_STYLE: Record<Verdict, { label: string; cls: string }> = {
-  likely_available: {
-    label: "LIKELY AVAILABLE",
-    cls: "bg-emerald-500/15 text-emerald-700 ring-emerald-500/40 dark:text-emerald-300",
-  },
-  likely_taken: {
-    label: "LIKELY TAKEN",
-    cls: "bg-rose-500/15 text-rose-700 ring-rose-500/40 dark:text-rose-300",
-  },
-  mixed: {
-    label: "MIXED — VERIFY MANUALLY",
-    cls: "bg-amber-500/15 text-amber-700 ring-amber-500/40 dark:text-amber-300",
-  },
-};
-
-const CATEGORY_LABEL: Record<ProviderCategory, string> = {
-  trademark: "Trademarks",
-  domain: "Domains",
-  social: "Social handles",
-  appstore: "App stores",
-  package: "Package registries",
-  code: "Code hosts",
-};
-
-const CATEGORY_ORDER: ProviderCategory[] = [
-  "trademark",
-  "domain",
-  "social",
-  "appstore",
-  "package",
-  "code",
-];
-
-const ALL_STATUSES: CheckStatus[] = [
-  "available",
-  "taken",
-  "partial",
-  "manual_verify",
-  "unknown",
-  "error",
-];
 
 const STATUS_PRIORITY: Record<CheckStatus, number> = {
   taken: 0,
@@ -306,7 +230,7 @@ function parseHideHash(hash: string): Set<CheckStatus> {
     return out;
   }
   for (const tok of raw.split(",")) {
-    if ((ALL_STATUSES as string[]).includes(tok)) out.add(tok as CheckStatus);
+    if ((ALL_STATUSES as readonly string[]).includes(tok)) out.add(tok as CheckStatus);
   }
   return out;
 }

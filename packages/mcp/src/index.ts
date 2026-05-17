@@ -9,8 +9,10 @@ import {
 import {
   allProviders,
   batchCheckRequestSchema,
+  CATEGORIES,
   checkRequestSchema,
   compareRequestSchema,
+  DEFAULT_VARIANT_PROVIDERS,
   findFreeNamesRequestSchema,
   runCheck,
   runCheckBatch,
@@ -22,23 +24,10 @@ import {
   type ProviderResult,
 } from "@starter/shared";
 
-const DEFAULT_REQUIRED_PROVIDERS = [
-  "domain-com",
-  "npm",
-  "github-user",
-  "bluesky",
-];
-
+const DEFAULT_REQUIRED_PROVIDERS = [...DEFAULT_VARIANT_PROVIDERS];
 const VARIANT_QUICK_PROVIDERS = DEFAULT_REQUIRED_PROVIDERS;
 
-const CATEGORY_ENUM = [
-  "trademark",
-  "domain",
-  "social",
-  "appstore",
-  "package",
-  "code",
-] as const;
+const CATEGORY_ENUM = [...CATEGORIES];
 
 const server = new Server(
   { name: "name-check-mcp", version: "0.1.0" },
@@ -57,10 +46,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           query: { type: "string", description: "Name to check." },
           categories: {
             type: "array",
-            items: {
-              type: "string",
-              enum: [...CATEGORY_ENUM],
-            },
+            items: { type: "string", enum: CATEGORY_ENUM },
             description: "Limit to these provider categories.",
           },
           providers: {
@@ -93,10 +79,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           categories: {
             type: "array",
-            items: {
-              type: "string",
-              enum: [...CATEGORY_ENUM],
-            },
+            items: { type: "string", enum: CATEGORY_ENUM },
             description: "Limit to these provider categories.",
           },
           providers: {
@@ -130,10 +113,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           categories: {
             type: "array",
-            items: {
-              type: "string",
-              enum: [...CATEGORY_ENUM],
-            },
+            items: { type: "string", enum: CATEGORY_ENUM },
             description: "Limit to these provider categories.",
           },
           providers: {
@@ -173,10 +153,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           requireAvailableCategories: {
             type: "array",
-            items: {
-              type: "string",
-              enum: [...CATEGORY_ENUM],
-            },
+            items: { type: "string", enum: CATEGORY_ENUM },
             description:
               "Categories where every provider in the category must return status=available.",
           },

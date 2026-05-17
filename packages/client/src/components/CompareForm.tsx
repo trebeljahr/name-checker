@@ -13,24 +13,12 @@ import {
   makeKey,
   type LiveMatrix,
 } from "./CompareMatrix";
+import {
+  CATEGORY_LABEL_SHORT as CATEGORY_LABEL,
+  CATEGORY_ORDER,
+} from "@/lib/ui-constants";
 
-const ALL_CATEGORIES: ProviderCategory[] = [
-  "trademark",
-  "domain",
-  "social",
-  "appstore",
-  "package",
-  "code",
-];
-
-const CATEGORY_LABEL: Record<ProviderCategory, string> = {
-  trademark: "Trademarks",
-  domain: "Domains",
-  social: "Social",
-  appstore: "App stores",
-  package: "Packages",
-  code: "Code",
-};
+const ALL_CATEGORIES: readonly ProviderCategory[] = CATEGORY_ORDER;
 
 const MAX_QUERIES = 10;
 
@@ -56,7 +44,7 @@ export function CompareForm({
   const initialText = initialQueries.join(", ");
   const [input, setInput] = useState<string>(initialText);
   const [categories, setCategories] =
-    useState<ProviderCategory[]>(ALL_CATEGORIES);
+    useState<ProviderCategory[]>([...ALL_CATEGORIES]);
   const [running, setRunning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [matrix, setMatrix] = useState<LiveMatrix>({

@@ -9,24 +9,12 @@ import type {
 import Link from "next/link";
 import { ResultsView } from "./CheckResults";
 import { getRecent, pushRecent } from "@/lib/history";
+import {
+  CATEGORY_LABEL_SHORT as CATEGORY_LABEL,
+  CATEGORY_ORDER,
+} from "@/lib/ui-constants";
 
-const ALL_CATEGORIES: ProviderCategory[] = [
-  "trademark",
-  "domain",
-  "social",
-  "appstore",
-  "package",
-  "code",
-];
-
-const CATEGORY_LABEL: Record<ProviderCategory, string> = {
-  trademark: "Trademarks",
-  domain: "Domains",
-  social: "Social",
-  appstore: "App stores",
-  package: "Packages",
-  code: "Code",
-};
+const ALL_CATEGORIES: readonly ProviderCategory[] = CATEGORY_ORDER;
 
 export function CheckForm({
   initialQuery = "",
@@ -41,7 +29,7 @@ export function CheckForm({
 } = {}): React.ReactElement {
   const [query, setQuery] = useState<string>(initialQuery);
   const [categories, setCategories] =
-    useState<ProviderCategory[]>(ALL_CATEGORIES);
+    useState<ProviderCategory[]>([...ALL_CATEGORIES]);
   const [running, setRunning] = useState<boolean>(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(
     null,

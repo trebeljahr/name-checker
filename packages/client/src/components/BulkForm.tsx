@@ -10,24 +10,12 @@ import type {
 import { BulkMatrix, type BulkRow } from "./BulkMatrix";
 import { FREE_NAMES_PER_REQUEST } from "@/lib/plan-constants";
 import { useSession } from "@/lib/auth-client";
+import {
+  CATEGORY_LABEL_SHORT as CATEGORY_LABEL,
+  CATEGORY_ORDER,
+} from "@/lib/ui-constants";
 
-const ALL_CATEGORIES: ProviderCategory[] = [
-  "trademark",
-  "domain",
-  "social",
-  "appstore",
-  "package",
-  "code",
-];
-
-const CATEGORY_LABEL: Record<ProviderCategory, string> = {
-  trademark: "Trademarks",
-  domain: "Domains",
-  social: "Social",
-  appstore: "App stores",
-  package: "Packages",
-  code: "Code",
-};
+const ALL_CATEGORIES: readonly ProviderCategory[] = CATEGORY_ORDER;
 
 const MAX_BULK = 100;
 
@@ -42,7 +30,7 @@ export function BulkForm(): React.ReactElement {
   const [text, setText] = useState<string>("");
   const [parsedFromFile, setParsedFromFile] = useState<Parsed[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [categories, setCategories] = useState<ProviderCategory[]>(ALL_CATEGORIES);
+  const [categories, setCategories] = useState<ProviderCategory[]>([...ALL_CATEGORIES]);
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [running, setRunning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
