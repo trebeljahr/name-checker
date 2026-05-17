@@ -125,6 +125,7 @@ async function runOne(
   const start = Date.now();
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(new Error("provider timeout")), timeoutMs);
+  ctrl.signal.addEventListener("abort", () => clearTimeout(t), { once: true });
   try {
     const out = await p.check(query, ctrl.signal);
     return {
