@@ -71,31 +71,31 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       case "--compare":
         compareFlagged = true;
-        compareExplicit.push(...splitCsv(argv[++i]));
+        compareExplicit.push(...splitCsv(requireArgValue(a, argv[++i])));
         break;
       case "-c":
       case "--category":
       case "--categories":
-        out.categories = parseCategoryList(argv[++i]);
+        out.categories = parseCategoryList(requireArgValue(a, argv[++i]));
         break;
       case "-p":
       case "--provider":
       case "--providers":
-        out.providers = splitCsv(argv[++i]);
+        out.providers = splitCsv(requireArgValue(a, argv[++i]));
         break;
       case "-x":
       case "--exclude":
-        out.excludeProviders = splitCsv(argv[++i]);
+        out.excludeProviders = splitCsv(requireArgValue(a, argv[++i]));
         break;
       case "-t":
       case "--timeout":
-        out.timeoutMs = Number(argv[++i]);
+        out.timeoutMs = Number(requireArgValue(a, argv[++i]));
         break;
       case "--concurrency":
-        out.concurrency = Number(argv[++i]);
+        out.concurrency = Number(requireArgValue(a, argv[++i]));
         break;
       case "--variants": {
-        const n = Number(argv[++i]);
+        const n = Number(requireArgValue(a, argv[++i]));
         if (!Number.isFinite(n) || n < 0)
           throw new Error("--variants requires a non-negative integer");
         out.variants = Math.floor(n);
@@ -120,6 +120,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
     throw new Error("--json cannot combine with --csv or --md");
 
   return out;
+}
+
+function requireArgValue(flag: string, val: string | undefined): string {
+  if (val === undefined) throw new Error(`Missing value for ${flag}`);
+  return val;
 }
 
 function splitCsv(v: string | undefined): string[] {
