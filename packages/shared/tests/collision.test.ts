@@ -132,6 +132,16 @@ describe("scanCollisions", () => {
     expect(report.phoneticHits).toHaveLength(1);
   });
 
+  it("flags single-char homoglyph collision (Cyrillic а vs Latin a)", () => {
+    const summary = buildSummary([{ providerId: "p6", title: "а" }]);
+    const report = scanCollisions("a", summary);
+    expect(report.homoglyphHits).toHaveLength(1);
+    expect(report.homoglyphHits[0]).toMatchObject({
+      providerId: "p6",
+      foundName: "а",
+    });
+  });
+
   it("returns empty report when no results", () => {
     const summary = buildSummary([]);
     const report = scanCollisions("kairos", summary);

@@ -44,7 +44,7 @@ export function scanCollisions(query: string, summary: CheckSummary): CollisionR
     const evidence = result.evidence ?? [];
     for (const ev of evidence) {
       if (!ev?.title) continue;
-      const tokens = ev.title.split(TOKEN_SPLIT).filter((t) => t.length > 1);
+      const tokens = ev.title.split(TOKEN_SPLIT).filter((t) => t.length >= 1);
       for (const token of tokens) {
         const candNorm = normalizeHomoglyphs(token);
         if (!candNorm) continue;
