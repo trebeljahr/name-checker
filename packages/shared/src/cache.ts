@@ -21,6 +21,8 @@ class MemoryCache implements Cache {
   async get<T>(key: string): Promise<T | null> {
     const entry = this.store.get(key);
     if (!entry) return null;
+    // Entry expires at exactly expiresAt (inclusive), matching Redis EX semantics
+    // so the Upstash/IoRedis backends and this in-memory backend agree.
     if (entry.expiresAt <= Date.now()) {
       this.store.delete(key);
       return null;
