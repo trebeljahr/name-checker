@@ -69,7 +69,9 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const timeoutMs = opts.timeoutMs ?? 10_000;
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(new Error("timeout")), timeoutMs);
+  const t = setTimeout(() => {
+    if (!ctrl.signal.aborted) ctrl.abort(new Error("timeout"));
+  }, timeoutMs);
   const signal = opts.signal ? mergeSignals(opts.signal, ctrl.signal) : ctrl.signal;
   const host = hostnameOf(url);
   await hostLimiter.acquire(host);
