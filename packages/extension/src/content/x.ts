@@ -1,8 +1,8 @@
 import {
+  bootstrapSignupWatcher,
+  findVisibleInput,
   notifyDone,
   notifyTabOpen,
-  observeDom,
-  observeUrl,
   readPassportQuery,
   setNativeInputValue,
   waitFor,
@@ -10,13 +10,16 @@ import {
 
 const PLATFORM = "x" as const;
 
-const findUsernameInput = (): HTMLInputElement | null => {
-  const byName = document.querySelector<HTMLInputElement>("input[name=username]");
-  if (byName) return byName;
-  const inputs = document.querySelectorAll<HTMLInputElement>("input[autocomplete=username]");
-  for (const el of inputs) if (el.offsetParent) return el;
-  return null;
+const isOnSignupFlow = (): boolean =>
+  /^https:\/\/(?:x|twitter)\.com\/i\/flow\/signup/.test(location.href);
+
+const isConfirmedUrl = (): boolean => {
+  if (!/^https:\/\/(?:x|twitter)\.com\//.test(location.href)) return false;
+  return /\/home(?:$|[?#/])/.test(location.pathname);
 };
+
+const findUsernameInput = (): HTMLInputElement | null =>
+  findVisibleInput(["input[name=username]", "input[autocomplete=username]"]);
 
 const prefill = async (query: string): Promise<boolean> => {
   const el = await waitFor(findUsernameInput, { timeoutMs: 60_000 });
@@ -26,14 +29,6 @@ const prefill = async (query: string): Promise<boolean> => {
   return true;
 };
 
-const isOnSignupFlow = (): boolean =>
-  /^https:\/\/(?:x|twitter)\.com\/i\/flow\/signup/.test(location.href);
-
-const isConfirmed = (): boolean => {
-  if (!/^https:\/\/(?:x|twitter)\.com\//.test(location.href)) return false;
-  return /\/home(?:$|[?#/])/.test(location.pathname);
-};
-
 const main = async (): Promise<void> => {
   const query = await readPassportQuery();
   if (!query) return;
@@ -41,24 +36,15 @@ const main = async (): Promise<void> => {
   notifyTabOpen(PLATFORM);
 
   let prefilled = false;
-  const tryPrefill = async () => {
-    if (prefilled) return;
-    if (!isOnSignupFlow()) return;
+  const tryPrefill = async (): Promise<void> => {
+    if (prefilled || !isOnSignupFlow()) return;
     prefilled = await prefill(query);
   };
 
-  await tryPrefill();
-  const offDom = observeDom(() => {
-    void tryPrefill();
-  });
-  const offUrl = observeUrl(() => {
-    if (isConfirmed()) {
-      notifyDone(PLATFORM);
-      offDom();
-      offUrl();
-    } else {
-      void tryPrefill();
-    }
+  await bootstrapSignupWatcher({
+    tryPrefill,
+    isConfirmed: isConfirmedUrl,
+    onConfirmed: () => notifyDone(PLATFORM),
   });
 };
 

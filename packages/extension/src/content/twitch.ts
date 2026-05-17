@@ -1,8 +1,8 @@
 import {
+  bootstrapSignupWatcher,
+  findVisibleInput,
   notifyDone,
   notifyTabOpen,
-  observeDom,
-  observeUrl,
   readPassportQuery,
   setNativeInputValue,
   waitFor,
@@ -13,18 +13,14 @@ const PLATFORM = "twitch" as const;
 const isSignupVisible = (): boolean =>
   !!document.querySelector("[data-a-target=passport-modal], [data-a-target=signup-username-input]");
 
-const isConfirmed = (): boolean =>
+const isConfirmedDom = (): boolean =>
   !!document.querySelector("[data-a-target=user-menu-toggle], [data-test-selector=user-menu__toggle]");
 
-const findUsernameInput = (): HTMLInputElement | null => {
-  const byAttr = document.querySelector<HTMLInputElement>(
+const findUsernameInput = (): HTMLInputElement | null =>
+  findVisibleInput([
     "[data-a-target=signup-username-input] input, input[autocomplete=username]",
-  );
-  if (byAttr) return byAttr;
-  const candidates = document.querySelectorAll<HTMLInputElement>("input[name=username]");
-  for (const el of candidates) if (el.offsetParent) return el;
-  return null;
-};
+    "input[name=username]",
+  ]);
 
 const prefill = async (query: string): Promise<boolean> => {
   const el = await waitFor(findUsernameInput, { timeoutMs: 60_000 });
@@ -41,31 +37,16 @@ const main = async (): Promise<void> => {
   notifyTabOpen(PLATFORM);
 
   let prefilled = false;
-  let confirmed = false;
-  const teardown: Array<() => void> = [];
-
-  const tryPrefill = async () => {
+  const tryPrefill = async (): Promise<void> => {
     if (prefilled || !isSignupVisible()) return;
     prefilled = await prefill(query);
   };
 
-  const checkConfirm = () => {
-    if (confirmed) return;
-    if (prefilled && isConfirmed()) {
-      confirmed = true;
-      notifyDone(PLATFORM);
-      for (const fn of teardown) fn();
-    }
-  };
-
-  await tryPrefill();
-  teardown.push(
-    observeDom(() => {
-      void tryPrefill();
-      checkConfirm();
-    }),
-  );
-  teardown.push(observeUrl(() => void tryPrefill()));
+  await bootstrapSignupWatcher({
+    tryPrefill,
+    isConfirmed: () => prefilled && isConfirmedDom(),
+    onConfirmed: () => notifyDone(PLATFORM),
+  });
 };
 
 void main();

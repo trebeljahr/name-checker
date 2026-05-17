@@ -64,3 +64,46 @@ export const observeDom = (onMutation: () => void): (() => void) => {
   obs.observe(document.documentElement, { subtree: true, childList: true });
   return () => obs.disconnect();
 };
+
+export const findVisibleInput = (selectors: string[]): HTMLInputElement | null => {
+  for (const sel of selectors) {
+    const candidates = document.querySelectorAll<HTMLInputElement>(sel);
+    for (const el of candidates) if (el.offsetParent) return el;
+  }
+  return null;
+};
+
+export type SignupWatcherArgs = {
+  tryPrefill: () => Promise<void> | void;
+  isConfirmed: () => boolean;
+  onConfirmed: () => void;
+};
+
+export const bootstrapSignupWatcher = async ({
+  tryPrefill,
+  isConfirmed,
+  onConfirmed,
+}: SignupWatcherArgs): Promise<() => void> => {
+  await tryPrefill();
+  let offDom: () => void = () => {};
+  let offUrl: () => void = () => {};
+  const stop = (): void => {
+    offDom();
+    offUrl();
+  };
+  const checkConfirm = (): boolean => {
+    if (!isConfirmed()) return false;
+    onConfirmed();
+    stop();
+    return true;
+  };
+  offDom = observeDom(() => {
+    void tryPrefill();
+    checkConfirm();
+  });
+  offUrl = observeUrl(() => {
+    if (checkConfirm()) return;
+    void tryPrefill();
+  });
+  return stop;
+};

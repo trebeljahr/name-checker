@@ -130,5 +130,3 @@ export type BgResponse =
   | { ok: true; passport: Passport | null }
   | { ok: true }
   | { ok: false; error: string };
-
-export const STORAGE_KEY_EXPORT = STORAGE_KEY;

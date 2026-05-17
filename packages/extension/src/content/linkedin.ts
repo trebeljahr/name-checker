@@ -1,8 +1,8 @@
 import {
+  bootstrapSignupWatcher,
+  findVisibleInput,
   notifyDone,
   notifyTabOpen,
-  observeDom,
-  observeUrl,
   readPassportQuery,
   setNativeInputValue,
   waitFor,
@@ -14,14 +14,13 @@ const isSetup = (): boolean =>
   location.pathname.startsWith("/setup/create-company-page") ||
   location.pathname.startsWith("/company/setup/new");
 
-const isConfirmed = (): boolean =>
+const isConfirmedUrl = (): boolean =>
   /^\/company\/[^/]+\/?(admin|$)/.test(location.pathname);
 
-const findNameInput = (): HTMLInputElement | null => {
-  const byName = document.querySelector<HTMLInputElement>("input[name=companyName], input[id*=company-name i], input[aria-label*='Name' i]");
-  if (byName && byName.offsetParent) return byName;
-  return null;
-};
+const findNameInput = (): HTMLInputElement | null =>
+  findVisibleInput([
+    "input[name=companyName], input[id*=company-name i], input[aria-label*='Name' i]",
+  ]);
 
 const prefill = async (query: string): Promise<boolean> => {
   const el = await waitFor(findNameInput, { timeoutMs: 60_000 });
@@ -38,21 +37,15 @@ const main = async (): Promise<void> => {
   notifyTabOpen(PLATFORM);
 
   let prefilled = false;
-  const tryPrefill = async () => {
+  const tryPrefill = async (): Promise<void> => {
     if (prefilled || !isSetup()) return;
     prefilled = await prefill(query);
   };
 
-  await tryPrefill();
-  const offDom = observeDom(() => void tryPrefill());
-  const offUrl = observeUrl(() => {
-    if (isConfirmed() && prefilled) {
-      notifyDone(PLATFORM);
-      offDom();
-      offUrl();
-    } else {
-      void tryPrefill();
-    }
+  await bootstrapSignupWatcher({
+    tryPrefill,
+    isConfirmed: () => prefilled && isConfirmedUrl(),
+    onConfirmed: () => notifyDone(PLATFORM),
   });
 };
 

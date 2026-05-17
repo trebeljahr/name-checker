@@ -1,8 +1,8 @@
 import {
+  bootstrapSignupWatcher,
+  findVisibleInput,
   notifyDone,
   notifyTabOpen,
-  observeDom,
-  observeUrl,
   readPassportQuery,
   setNativeInputValue,
   waitFor,
@@ -13,18 +13,11 @@ const PLATFORM = "reddit" as const;
 const isSignup = (): boolean =>
   location.pathname.startsWith("/register") || location.pathname.startsWith("/account/register");
 
-const isConfirmed = (): boolean =>
+const isConfirmedUrl = (): boolean =>
   location.pathname === "/" && !!document.querySelector("[data-testid=user-drawer-button], [data-testid=user-avatar]");
 
-const findUsernameInput = (): HTMLInputElement | null => {
-  const byId = document.querySelector<HTMLInputElement>("#regUsername");
-  if (byId && byId.offsetParent) return byId;
-  const candidates = document.querySelectorAll<HTMLInputElement>(
-    "input[name=username]",
-  );
-  for (const el of candidates) if (el.offsetParent) return el;
-  return null;
-};
+const findUsernameInput = (): HTMLInputElement | null =>
+  findVisibleInput(["#regUsername", "input[name=username]"]);
 
 const prefill = async (query: string): Promise<boolean> => {
   const el = await waitFor(findUsernameInput, { timeoutMs: 60_000 });
@@ -41,21 +34,15 @@ const main = async (): Promise<void> => {
   notifyTabOpen(PLATFORM);
 
   let prefilled = false;
-  const tryPrefill = async () => {
+  const tryPrefill = async (): Promise<void> => {
     if (prefilled || !isSignup()) return;
     prefilled = await prefill(query);
   };
 
-  await tryPrefill();
-  const offDom = observeDom(() => void tryPrefill());
-  const offUrl = observeUrl(() => {
-    if (isConfirmed() && prefilled) {
-      notifyDone(PLATFORM);
-      offDom();
-      offUrl();
-    } else {
-      void tryPrefill();
-    }
+  await bootstrapSignupWatcher({
+    tryPrefill,
+    isConfirmed: () => prefilled && isConfirmedUrl(),
+    onConfirmed: () => notifyDone(PLATFORM),
   });
 };
 

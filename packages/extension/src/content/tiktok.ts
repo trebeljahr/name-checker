@@ -1,8 +1,8 @@
 import {
+  bootstrapSignupWatcher,
+  findVisibleInput,
   notifyDone,
   notifyTabOpen,
-  observeDom,
-  observeUrl,
   readPassportQuery,
   setNativeInputValue,
   waitFor,
@@ -13,16 +13,13 @@ const PLATFORM = "tiktok" as const;
 const isSignup = (): boolean =>
   location.pathname.startsWith("/signup");
 
-const isConfirmed = (): boolean =>
+const isConfirmedUrl = (): boolean =>
   /^\/@/.test(location.pathname) || location.pathname === "/foryou" || location.pathname === "/";
 
-const findUsernameInput = (): HTMLInputElement | null => {
-  const candidates = document.querySelectorAll<HTMLInputElement>(
+const findUsernameInput = (): HTMLInputElement | null =>
+  findVisibleInput([
     "input[name=username], input[name=nickname], input[placeholder*='username' i], input[placeholder*='nickname' i]",
-  );
-  for (const el of candidates) if (el.offsetParent) return el;
-  return null;
-};
+  ]);
 
 const prefill = async (query: string): Promise<boolean> => {
   const el = await waitFor(findUsernameInput, { timeoutMs: 60_000 });
@@ -39,21 +36,15 @@ const main = async (): Promise<void> => {
   notifyTabOpen(PLATFORM);
 
   let prefilled = false;
-  const tryPrefill = async () => {
+  const tryPrefill = async (): Promise<void> => {
     if (prefilled || !isSignup()) return;
     prefilled = await prefill(query);
   };
 
-  await tryPrefill();
-  const offDom = observeDom(() => void tryPrefill());
-  const offUrl = observeUrl(() => {
-    if (isConfirmed()) {
-      notifyDone(PLATFORM);
-      offDom();
-      offUrl();
-    } else {
-      void tryPrefill();
-    }
+  await bootstrapSignupWatcher({
+    tryPrefill,
+    isConfirmed: isConfirmedUrl,
+    onConfirmed: () => notifyDone(PLATFORM),
   });
 };
 

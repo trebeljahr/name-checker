@@ -9,7 +9,7 @@ const PLATFORM = "threads" as const;
 
 const isProfile = (query: string): boolean => {
   const path = decodeURIComponent(location.pathname);
-  return path.startsWith(`/@${query}`) || path === `/@${query}` || path === `/@${query}/`;
+  return path.startsWith(`/@${query}`) || path === `/@${query}/`;
 };
 
 const main = async (): Promise<void> => {

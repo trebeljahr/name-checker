@@ -1,8 +1,8 @@
 import {
+  bootstrapSignupWatcher,
+  findVisibleInput,
   notifyDone,
   notifyTabOpen,
-  observeDom,
-  observeUrl,
   readPassportQuery,
   setNativeInputValue,
   waitFor,
@@ -13,16 +13,11 @@ const PLATFORM = "instagram" as const;
 const isSignup = (): boolean =>
   location.pathname.startsWith("/accounts/emailsignup");
 
-const isConfirmed = (): boolean =>
+const isConfirmedUrl = (): boolean =>
   location.pathname === "/" || /^\/[^/]+\/?$/.test(location.pathname);
 
-const findUsernameInput = (): HTMLInputElement | null => {
-  const candidates = document.querySelectorAll<HTMLInputElement>(
-    "input[name=username]",
-  );
-  for (const el of candidates) if (el.offsetParent) return el;
-  return null;
-};
+const findUsernameInput = (): HTMLInputElement | null =>
+  findVisibleInput(["input[name=username]"]);
 
 const prefill = async (query: string): Promise<boolean> => {
   const el = await waitFor(findUsernameInput, { timeoutMs: 60_000 });
@@ -39,21 +34,15 @@ const main = async (): Promise<void> => {
   notifyTabOpen(PLATFORM);
 
   let prefilled = false;
-  const tryPrefill = async () => {
+  const tryPrefill = async (): Promise<void> => {
     if (prefilled || !isSignup()) return;
     prefilled = await prefill(query);
   };
 
-  await tryPrefill();
-  const offDom = observeDom(() => void tryPrefill());
-  const offUrl = observeUrl(() => {
-    if (isConfirmed() && prefilled) {
-      notifyDone(PLATFORM);
-      offDom();
-      offUrl();
-    } else {
-      void tryPrefill();
-    }
+  await bootstrapSignupWatcher({
+    tryPrefill,
+    isConfirmed: () => prefilled && isConfirmedUrl(),
+    onConfirmed: () => notifyDone(PLATFORM),
   });
 };
 
