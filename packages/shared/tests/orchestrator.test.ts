@@ -51,20 +51,29 @@ describe("runCheckWithProviders — rollup", () => {
 });
 
 describe("runCheckWithProviders — verdict", () => {
-  it("any taken → likely_taken", async () => {
+  it("heavy hits (trademark, domain, package) → likely_taken", async () => {
     const s = await runCheckWithProviders(
-      [fakeProvider("a", "available"), fakeProvider("b", "taken")],
+      [
+        fakeProvider("domain-com", "taken", { category: "domain" }),
+        fakeProvider("npm", "taken", { category: "package" }),
+        fakeProvider("apple-appstore", "taken", { category: "appstore" }),
+        fakeProvider("trademark-uspto", "taken", { category: "trademark", detail: "IC 09" })
+      ],
       { query: "foo" },
     );
     expect(s.verdict).toBe("likely_taken");
   });
 
-  it("partial alone → likely_taken (partial counts as evidence)", async () => {
+  it("partial trademark alone → likely_available but subverdict caution", async () => {
     const s = await runCheckWithProviders(
-      [fakeProvider("a", "available"), fakeProvider("b", "partial")],
+      [
+        fakeProvider("domain-com", "available", { category: "domain" }),
+        fakeProvider("tm", "partial", { category: "trademark", detail: "similar" })
+      ],
       { query: "foo" },
     );
-    expect(s.verdict).toBe("likely_taken");
+    expect(s.verdict).toBe("likely_available");
+    expect(s.subverdicts.trademark).toBe("caution");
   });
 
   it("all available → likely_available", async () => {

@@ -104,14 +104,17 @@ export async function runCheckWithProviders(
     totalMs: finishedAtDate.getTime() - startedAtDate.getTime(),
     results,
     rollup,
-    verdict: verdictFromScore(score),
+    verdict: verdictFromScore(score, rollup),
     score,
     scoreBreakdown: breakdown,
     subverdicts,
   };
 }
 
-function verdictFromScore(score: number): Verdict {
+function verdictFromScore(score: number, rollup: Record<CheckStatus, number>): Verdict {
+  if (rollup.available === 0 && rollup.taken === 0 && rollup.partial === 0) {
+    return "mixed";
+  }
   if (score >= 70) return "likely_available";
   if (score >= 35) return "mixed";
   return "likely_taken";
