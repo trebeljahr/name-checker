@@ -25,10 +25,8 @@ export function getUserPlan(userId: string): Plan {
     )
     .get(userId);
   if (!row || row.plan !== "pro") return "free";
-  if (row.current_period_end) {
-    const end = Date.parse(row.current_period_end);
-    if (Number.isFinite(end) && end < Date.now()) return "free";
-  }
+  const end = row.current_period_end ? Date.parse(row.current_period_end) : NaN;
+  if (!Number.isFinite(end) || end <= Date.now()) return "free";
   return "pro";
 }
 

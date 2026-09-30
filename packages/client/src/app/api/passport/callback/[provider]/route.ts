@@ -1,3 +1,5 @@
+import { readPassportSession } from "@/lib/passport-session";
+import { passportOrigin, readPlanGate } from "@/lib/passport-runtime";
 import { NextResponse } from "next/server";
 import {
   createGithubOrg,
@@ -22,7 +24,11 @@ export async function GET(
 ): Promise<Response> {
   const { provider } = await ctx.params;
   const url = new URL(req.url);
-  const origin = url.origin;
+  const identity = await readPassportSession(req);
+  if (!identity) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  if (!readPlanGate(identity.plan).allowed) return NextResponse.json({ error: "plan_gate" }, { status: 402 });
+  const origin = passportOrigin();
+  if (!origin || url.origin !== origin) return NextResponse.json({ error: "passport_not_configured" }, { status: 503 });
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const errParam = url.searchParams.get("error");
@@ -36,7 +42,7 @@ export async function GET(
   if (!state) {
     return NextResponse.json({ error: "missing state" }, { status: 400 });
   }
-  const session = await consumeOAuthSession(state);
+  const session = await consumeOAuthSession(state, identity.userId, "github", `${origin}/api/passport/callback/github`);
   if (!session) {
     return NextResponse.json(
       { error: "invalid or expired oauth state" },
@@ -73,7 +79,7 @@ export async function GET(
       clientId,
       clientSecret,
       code,
-      redirectUri: `${origin}/api/passport/callback/github`,
+      redirectUri: session.redirectUri,
     });
     accessToken = exchange.accessToken;
   } catch (err) {

@@ -7,3 +7,16 @@
 .env.*
 .env.keys
 !.env.example
+
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/.next
+**/data
+**/*.db
+**/*.db-*
+**/*.sqlite*
+.git
+**/*.pem
+**/*.key

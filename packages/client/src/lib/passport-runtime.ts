@@ -75,12 +75,20 @@ export function readPlanGate(plan: "free" | "pro"): {
   allowed: boolean;
   reason: string | null;
 } {
-  if (process.env.PASSPORT_BYPASS_PLAN === "1") {
-    return { allowed: true, reason: null };
-  }
   if (plan === "pro") return { allowed: true, reason: null };
   return {
     allowed: false,
     reason: "passport reservations require a Pro plan",
   };
+}
+
+// Provider mutations remain off until auth, billing and provider setup are verified.
+export function passportOrigin(): string | null {
+  const configured = process.env.BETTER_AUTH_URL;
+  if (process.env.PASSPORT_ACTIONS_ENABLED !== "1" || !configured) return null;
+  try {
+    const url = new URL(configured);
+    if (url.protocol !== "https:" && !(process.env.NODE_ENV !== "production" && url.hostname === "127.0.0.1")) return null;
+    return url.origin;
+  } catch { return null; }
 }

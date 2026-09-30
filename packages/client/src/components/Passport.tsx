@@ -147,7 +147,11 @@ export function Passport({ query }: PassportProps): React.ReactElement {
       `/api/passport/status?query=${encodeURIComponent(query)}`,
       { cache: "no-store" },
     );
-    if (!res.ok) return;
+    if (!res.ok) {
+      setPlan("free");
+      setReservations({ github: emptyReservation(query, "github"), npm: emptyReservation(query, "npm"), bluesky: emptyReservation(query, "bluesky") });
+      return;
+    }
     const body = (await res.json()) as StatusResponse;
     setPlan(body.plan);
     setReservations((prev) => {
@@ -308,13 +312,8 @@ export function Passport({ query }: PassportProps): React.ReactElement {
 
       {plan === "free" && (
         <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-sm text-amber-900 dark:text-amber-200">
-          <strong>Pro feature.</strong> The brand passport is gated behind the
-          Pro plan. Set{" "}
-          <code className="rounded bg-amber-500/20 px-1 font-mono text-xs">
-            PASSPORT_BYPASS_PLAN=1
-          </code>{" "}
-          in the server env to demo it locally, or wait for the better-auth
-          chip to wire real billing.
+          <strong>Pro feature.</strong> Sign in with an active Pro subscription to
+          reserve names. Anonymous drafts stay in this browser.
         </div>
       )}
 
@@ -356,7 +355,7 @@ export function Passport({ query }: PassportProps): React.ReactElement {
               {platform === "npm" && (
                 <input
                   type="password"
-                  placeholder="npm token (optional, uses server NPM_TOKEN otherwise)"
+                  placeholder="Your npm token (required)"
                   value={npmToken}
                   onChange={(e) => setNpmToken(e.target.value)}
                   className="rounded-md border border-input bg-background px-2 py-1 text-xs font-mono"

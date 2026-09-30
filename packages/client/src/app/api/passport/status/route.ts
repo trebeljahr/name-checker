@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { getOrCreatePassportSession } from "@/lib/passport-session";
+import { readPassportSession } from "@/lib/passport-session";
 import { listReservations } from "@/lib/passport-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request): Promise<Response> {
-  const session = await getOrCreatePassportSession();
+  const session = await readPassportSession(req);
+  if (!session) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   const url = new URL(req.url);
   const query = url.searchParams.get("query")?.trim();
   const all = await listReservations(session.userId);

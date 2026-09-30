@@ -1,10 +1,11 @@
+import { passportOrigin } from "@/lib/passport-runtime";
 import { NextResponse } from "next/server";
 import {
   createNpmScopeReservation,
   emptyPlaceholderTarball,
   npmScope,
 } from "@starter/shared/passport/npm";
-import { getOrCreatePassportSession } from "@/lib/passport-session";
+import { readPassportSession } from "@/lib/passport-session";
 import {
   persistError,
   persistResult,
@@ -19,7 +20,8 @@ export const maxDuration = 60;
 type Body = { query?: unknown; token?: unknown };
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await getOrCreatePassportSession();
+  const session = await readPassportSession(req);
+  if (!session) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   const gate = readPlanGate(session.plan);
   if (!gate.allowed) {
     return NextResponse.json(
@@ -27,6 +29,9 @@ export async function POST(req: Request): Promise<Response> {
       { status: 402 },
     );
   }
+  const origin = passportOrigin();
+  if (!origin) return NextResponse.json({ error: "passport_not_configured" }, { status: 503 });
+  if (req.headers.get("origin") !== origin) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -39,7 +44,6 @@ export async function POST(req: Request): Promise<Response> {
   }
   const npmToken =
     (typeof body.token === "string" && body.token.trim()) ||
-    process.env.NPM_TOKEN ||
     "";
   if (!npmToken) {
     const persisted = await persistError({
@@ -48,7 +52,7 @@ export async function POST(req: Request): Promise<Response> {
       platform: "npm",
       failureCode: "missing_credentials",
       detail:
-        "no npm token available — set NPM_TOKEN on the server or paste a token in the UI",
+        "no npm token available — paste your own token in the UI",
       fallbackUrl: `https://www.npmjs.com/signup?next=/org/create?orgname=${encodeURIComponent(npmScope(query))}`,
     });
     return NextResponse.json(persisted, { status: 400 });

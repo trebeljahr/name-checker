@@ -1,9 +1,10 @@
+import { passportOrigin } from "@/lib/passport-runtime";
 import { NextResponse } from "next/server";
 import {
   githubAuthorizeUrl,
   githubSoftFallbackUrl,
 } from "@starter/shared/passport/github";
-import { getOrCreatePassportSession } from "@/lib/passport-session";
+import { readPassportSession } from "@/lib/passport-session";
 import {
   createOAuthSession,
   getReservation,
@@ -18,7 +19,8 @@ export const maxDuration = 60;
 type StartBody = { query?: unknown; redirectOrigin?: unknown };
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await getOrCreatePassportSession();
+  const session = await readPassportSession(req);
+  if (!session) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   const gate = readPlanGate(session.plan);
   if (!gate.allowed) {
     return NextResponse.json(
@@ -26,6 +28,9 @@ export async function POST(req: Request): Promise<Response> {
       { status: 402 },
     );
   }
+  const origin = passportOrigin();
+  if (!origin) return NextResponse.json({ error: "passport_not_configured" }, { status: 503 });
+  if (req.headers.get("origin") !== origin) return NextResponse.json({ error: "invalid_origin" }, { status: 403 });
   let body: StartBody;
   try {
     body = (await req.json()) as StartBody;
@@ -36,10 +41,9 @@ export async function POST(req: Request): Promise<Response> {
   if (!query) {
     return NextResponse.json({ error: "invalid query" }, { status: 400 });
   }
-  const origin =
-    typeof body.redirectOrigin === "string" && body.redirectOrigin
-      ? body.redirectOrigin
-      : new URL(req.url).origin;
+  if (body.redirectOrigin !== undefined && body.redirectOrigin !== origin) {
+    return NextResponse.json({ error: "invalid_redirect" }, { status: 400 });
+  }
   const clientId = process.env.GITHUB_OAUTH_CLIENT_ID;
   if (!clientId) {
     const existing = await getReservation(session.userId, query, "github");
@@ -67,6 +71,7 @@ export async function POST(req: Request): Promise<Response> {
     userId: session.userId,
     query,
     platform: "github",
+    redirectUri: `${origin}/api/passport/callback/github`,
   });
   const callbackUri = `${origin}/api/passport/callback/github`;
   const authorizeUrl = githubAuthorizeUrl({

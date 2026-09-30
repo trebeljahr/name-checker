@@ -10,3 +10,7 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - better-sqlite3
+# Patched build/runtime transitive dependencies pinned until upstream catches up.
+overrides:
+  postcss: ^8.5.23
+  'esbuild@<0.24.3': ^0.28.0
