@@ -22,6 +22,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=6657
+ENV HOSTNAME=0.0.0.0
 
 # Next.js standalone output
 COPY --from=build /app/packages/client/.next/standalone ./
