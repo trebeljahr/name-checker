@@ -77,3 +77,6 @@ npm-debug.log*
 # Passport sidecar reservation store (used until better-auth/db lands)
 data/reservations.json
 data/passport-sessions.json
+
+# Commit encrypted configuration; private .env.keys stays ignored.
+!/packages/client/.env.production
