@@ -5,6 +5,7 @@
 services:
   client:
     image: ${CLIENT_IMAGE:-ghcr.io/OWNER/REPO-client:main}
+    pull_policy: always
     environment:
       NEXT_PUBLIC_API_URL: ${API_URL}
       NEXT_PUBLIC_WS_URL: ${WS_URL:-}
