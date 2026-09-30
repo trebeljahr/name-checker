@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer";
+import { sendProjectSesEmail } from "./ses-email";
 
 let cached: Transporter | null = null;
 
@@ -24,6 +25,13 @@ export async function sendMail(opts: {
   text: string;
   html?: string;
 }): Promise<void> {
+  // hatchkit-ses-project-v1: explicit opt-in, never fall back after an SES failure.
+  const transport = process.env.EMAIL_TRANSPORT;
+  if (transport === "ses") {
+    await sendProjectSesEmail(opts, process.env);
+    return;
+  }
+  if (transport && transport !== "smtp") throw new Error("Unknown EMAIL_TRANSPORT");
   const t = getTransporter();
   const from = process.env.MAIL_FROM ?? "name-check <noreply@example.com>";
   if (!t) {

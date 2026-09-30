@@ -14,6 +14,14 @@ services:
       AUTH_DB_PATH: /app/data/auth.db
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be configured in Coolify}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL must be configured in Coolify}
+      EMAIL_TRANSPORT: ${EMAIL_TRANSPORT:-ses}
+      SES_PROJECT_ACCESS_KEY_ID: ${SES_PROJECT_ACCESS_KEY_ID:?Configure the project SES sender}
+      SES_PROJECT_SECRET_ACCESS_KEY: ${SES_PROJECT_SECRET_ACCESS_KEY:?Configure the project SES sender}
+      SES_PROJECT_REGION: ${SES_PROJECT_REGION:?Configure the project SES sender}
+      SES_PROJECT_IDENTITY_ARN: ${SES_PROJECT_IDENTITY_ARN:?Configure the project SES sender}
+      SES_PROJECT_TENANT: ${SES_PROJECT_TENANT:?Configure the project SES sender}
+      SES_PROJECT_CONFIGURATION_SET: ${SES_PROJECT_CONFIGURATION_SET:?Configure the project SES sender}
+      SES_PROJECT_FROM_EMAIL: ${SES_PROJECT_FROM_EMAIL:?Configure the project SES sender}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}

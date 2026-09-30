@@ -29,7 +29,8 @@
     "stripe": "^22.6.2",
     "tailwind-merge": "^2.6.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@aws-sdk/client-sesv2": "3.1048.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.10.0",
