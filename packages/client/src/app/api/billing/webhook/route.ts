@@ -6,12 +6,20 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isoFromUnix(seconds: number | null | undefined): string | null {
-  if (!seconds) return null;
-  return new Date(seconds * 1000).toISOString();
+  if (typeof seconds !== "number" || !Number.isFinite(seconds)) return null;
+  const date = new Date(seconds * 1000);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
-function periodEnd(sub: Stripe.Subscription): string | null {
-  const fromItem = sub.items?.data?.[0]?.current_period_end;
+function proItem(sub: Stripe.Subscription): Stripe.SubscriptionItem | undefined {
+  const priceId = process.env.STRIPE_PRO_PRICE_ID;
+  if (!priceId) return undefined;
+  // Use the same exact price as checkout, not any product on this customer.
+  return sub.items?.data?.find((item) => item.price?.id === priceId);
+}
+
+function periodEnd(sub: Stripe.Subscription, item: Stripe.SubscriptionItem): string | null {
+  const fromItem = item.current_period_end;
   if (typeof fromItem === "number") return isoFromUnix(fromItem);
   const legacy = (sub as unknown as { current_period_end?: number })
     .current_period_end;
@@ -22,10 +30,11 @@ function applySubscription(sub: Stripe.Subscription): void {
   const customerId =
     typeof sub.customer === "string" ? sub.customer : sub.customer.id;
   const active = sub.status === "active" || sub.status === "trialing";
+  const item = proItem(sub);
   setSubscriptionByCustomer(customerId, {
     stripeSubId: sub.id,
-    plan: active ? "pro" : "free",
-    currentPeriodEnd: periodEnd(sub),
+    plan: active && item ? "pro" : "free",
+    currentPeriodEnd: item ? periodEnd(sub, item) : null,
   });
 }
 
@@ -85,7 +94,7 @@ export async function POST(req: Request): Promise<Response> {
       setSubscriptionByCustomer(customerId, {
         stripeSubId: sub.id,
         plan: "free",
-        currentPeriodEnd: periodEnd(sub),
+        currentPeriodEnd: null,
       });
       break;
     }
