@@ -14,7 +14,11 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/client packages/client
 RUN pnpm --filter @starter/shared run build
-RUN pnpm --filter @starter/client run build
+# Fixtures exist only for prerendering in this discarded build stage.
+# Runtime receives real auth configuration from Coolify.
+RUN BETTER_AUTH_URL=http://127.0.0.1:51847 \
+    BETTER_AUTH_SECRET=ci-build-fixture-secret-not-for-production-2026 \
+    pnpm --filter @starter/client run build
 
 # ── Stage 3: Production runtime ─────────────────────────────────────
 FROM node:24-bookworm-slim AS runtime

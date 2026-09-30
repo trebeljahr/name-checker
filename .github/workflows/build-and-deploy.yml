@@ -23,6 +23,10 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+        # Next prerenders auth routes; never decrypt production secrets in CI.
+        env:
+          BETTER_AUTH_URL: http://127.0.0.1:51847
+          BETTER_AUTH_SECRET: ci-build-fixture-secret-not-for-production-2026
       - run: pnpm run test:unit
 
   e2e:

@@ -1,8 +1,7 @@
 # Env & secrets — keep keys out of build context.
-# No encrypted .env.production used in this repo today, so nothing is
-# re-included. Added by security sweep: prevents .env / .env.keys from
-# being copied via Dockerfile `COPY . .` into intermediate build
-# layers, GHA caches, or local docker builds.
+# Encrypted production config stays in Git for dotenvx-managed storage.
+# Coolify injects decrypted runtime values; neither ciphertext nor private
+# keys belong in image layers, build caches, or the Next build environment.
 .env
 .env.*
 .env.keys
