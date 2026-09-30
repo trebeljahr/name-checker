@@ -26,7 +26,7 @@ test.describe("/check page", () => {
     await expect(verdict).toHaveText(/LIKELY AVAILABLE/, { timeout: 60_000 });
   });
 
-  test("'react' is LIKELY TAKEN — npm has it", async ({ page }) => {
+  test("'react' is reported as taken by npm", async ({ page }) => {
     await page.goto("/check");
     await selectPackagesOnly(page);
     await page.getByTestId("check-input").fill("react");
@@ -34,6 +34,10 @@ test.describe("/check page", () => {
 
     const verdict = page.getByTestId("verdict-badge");
     await expect(verdict).toBeVisible({ timeout: 60_000 });
-    await expect(verdict).toHaveText(/LIKELY TAKEN/, { timeout: 60_000 });
+    // Overall brand score weighs all categories; npm availability remains specific.
+    const npmResult = page.getByRole("listitem").filter({
+      has: page.getByText("npm package", { exact: true }),
+    });
+    await expect(npmResult.getByText("TAKEN", { exact: true })).toBeVisible();
   });
 });

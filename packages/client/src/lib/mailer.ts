@@ -27,6 +27,9 @@ export async function sendMail(opts: {
   const t = getTransporter();
   const from = process.env.MAIL_FROM ?? "name-check <noreply@example.com>";
   if (!t) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SMTP_HOST must be configured for production email");
+    }
     console.log(
       `[mailer] SMTP not configured. Would send to ${opts.to}:\n${opts.subject}\n${opts.text}`,
     );
