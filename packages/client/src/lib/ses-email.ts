@@ -14,7 +14,7 @@ interface EmailParams {
 export type ProjectSesConfig = Partial<Record<
   | "SES_PROJECT_ACCESS_KEY_ID" | "SES_PROJECT_SECRET_ACCESS_KEY"
   | "SES_PROJECT_REGION" | "SES_PROJECT_IDENTITY_ARN" | "SES_PROJECT_TENANT"
-  | "SES_PROJECT_CONFIGURATION_SET" | "SES_PROJECT_FROM_EMAIL"
+  | "SES_PROJECT_CONFIGURATION_SET" | "SES_PROJECT_FROM_EMAIL" | "SES_PROJECT_REPLY_TO"
   | "EMAIL_TEST_RECIPIENT" | "NODE_ENV", string>>;
 
 export function projectSesReady(source: ProjectSesConfig): boolean {
@@ -29,7 +29,10 @@ export function projectSesMessage(params: EmailParams, source: ProjectSesConfig)
   if (!identity || identity[1] !== source.SES_PROJECT_REGION || (source.SES_PROJECT_FROM_EMAIL ?? "").split("@")[1] !== identity[2] || !/^[a-z0-9][a-z0-9._+-]*@[a-z0-9.-]+$/.test(source.SES_PROJECT_FROM_EMAIL ?? "")) throw new Error("SES sender identity, From address and region do not agree.");
   if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(params.to) || /[\r\n]/.test(params.subject)) throw new Error("Invalid email recipient or subject.");
   if (source.NODE_ENV !== "production" && (!source.EMAIL_TEST_RECIPIENT || params.to.toLowerCase() !== source.EMAIL_TEST_RECIPIENT.toLowerCase())) throw new Error("Non-production email may only target EMAIL_TEST_RECIPIENT.");
+  const replyTo = source.SES_PROJECT_REPLY_TO;
+  if (replyTo && !/^[^\s<>@,]+@[^\s<>@,]+\.[^\s<>@,]+$/.test(replyTo)) throw new Error("Invalid SES_PROJECT_REPLY_TO.");
   return {
+    ...(replyTo ? { ReplyToAddresses: [replyTo] } : {}),
     FromEmailAddress: source.SES_PROJECT_FROM_EMAIL,
     FromEmailAddressIdentityArn: source.SES_PROJECT_IDENTITY_ARN,
     TenantName: source.SES_PROJECT_TENANT,

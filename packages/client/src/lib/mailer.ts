@@ -43,5 +43,7 @@ export async function sendMail(opts: {
     );
     return;
   }
-  await t.sendMail({ from, ...opts });
+  const replyTo = process.env.EMAIL_REPLY_TO;
+  if (replyTo && !/^[^\s<>@,]+@[^\s<>@,]+\.[^\s<>@,]+$/.test(replyTo)) throw new Error("Invalid EMAIL_REPLY_TO");
+  await t.sendMail({ from, ...opts, ...(replyTo ? { replyTo } : {}) });
 }

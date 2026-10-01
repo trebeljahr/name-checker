@@ -77,3 +77,12 @@ describe("project SES email", () => {
     expect(sdk.config).not.toHaveBeenCalled();
   });
 });
+
+
+it("pins replies independently of the sole recipient", () => {
+  const message = projectSesMessage(mail, { ...config, SES_PROJECT_REPLY_TO: "rico@trebeljahr.com" });
+  expect(message.ReplyToAddresses).toEqual(["rico@trebeljahr.com"]);
+  expect(message.Destination).toEqual({ ToAddresses: [mail.to] });
+  expect(() => projectSesMessage(mail, { ...config, SES_PROJECT_REPLY_TO: "a@example.com,b@example.com" })).toThrow("Invalid SES_PROJECT_REPLY_TO");
+  expect(() => projectSesMessage(mail, { ...config, SES_PROJECT_REPLY_TO: "a@example.com\r\nBcc: b@example.com" })).toThrow("Invalid SES_PROJECT_REPLY_TO");
+});
