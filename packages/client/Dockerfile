@@ -24,6 +24,10 @@ RUN BETTER_AUTH_URL=http://127.0.0.1:51847 \
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 
+# Coolify's configured health probe runs curl inside the image.
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV PORT=6657
 ENV HOSTNAME=0.0.0.0
@@ -32,9 +36,12 @@ ENV HOSTNAME=0.0.0.0
 COPY --from=build /app/packages/client/.next/standalone ./
 COPY --from=build /app/packages/client/.next/static ./packages/client/.next/static
 COPY --from=build /app/packages/client/public ./packages/client/public
+COPY drain.cjs /usr/local/lib/drain.cjs
 
 RUN mkdir -p /app/data && chown node:node /app/data
 ENV AUTH_DB_PATH=/app/data/auth.db
+ENV SHUTDOWN_DRAIN_SECONDS=20
+ENV HEALTH_CHECK_PATH=/
 
 USER node
 EXPOSE 6657
@@ -42,4 +49,6 @@ EXPOSE 6657
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||'6657')).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
-CMD ["node", "packages/client/server.js"]
+# Direct Node PID 1 receives Docker's SIGTERM and keeps the server alive
+# while its loopback health probe fails during the drain interval.
+CMD ["node", "--require", "/usr/local/lib/drain.cjs", "packages/client/server.js"]
