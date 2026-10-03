@@ -24,7 +24,10 @@
     "test:shared": "pnpm --filter @starter/shared run test",
     "test:client": "pnpm --filter @starter/client run test",
     "test:e2e": "playwright test",
-    "typecheck": "pnpm -r run typecheck"
+    "typecheck": "pnpm -r run typecheck",
+    "backup:status": "hatchkit backup status --project name-checker",
+    "backup:list": "hatchkit backup snapshots --project name-checker",
+    "backup:restore": "hatchkit backup restore --project name-checker"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
