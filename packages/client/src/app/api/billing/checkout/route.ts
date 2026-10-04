@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ensureStripeCustomer, getStripe } from "@/lib/stripe";
+import { CheckoutHeldError, createCheckoutSession } from "@/lib/checkout";
 import { getSessionFromRequest } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -23,27 +23,23 @@ export async function POST(req: Request): Promise<Response> {
     process.env.BETTER_AUTH_URL ??
     new URL(req.url).origin;
 
-  const customerId = await ensureStripeCustomer(
-    session.user.id,
-    session.user.email,
-  );
-
-  const checkout = await getStripe().checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${baseUrl}/account?billing=success`,
-    cancel_url: `${baseUrl}/pricing?billing=cancelled`,
-    allow_promotion_codes: true,
-    client_reference_id: session.user.id,
-    metadata: { userId: session.user.id },
-  });
-
-  if (!checkout.url) {
-    return NextResponse.json(
-      { error: "Stripe did not return a checkout URL" },
-      { status: 500 },
-    );
+  try {
+    const url = await createCheckoutSession({
+      userId: session.user.id,
+      email: session.user.email,
+      priceId,
+      baseUrl,
+    });
+    return NextResponse.json({ url });
+  } catch (err) {
+    if (err instanceof CheckoutHeldError) {
+      return NextResponse.json({ error: "A previous checkout needs support review before another can start." }, { status: 409 });
+    }
+    if (err instanceof Error && err.message.includes("already in progress")) {
+      return NextResponse.json({ error: "Checkout is already starting in another tab." }, { status: 409 });
+    }
+    // The durable request is kept; the next attempt replays the same Stripe request.
+    console.error("[billing] checkout failed", err);
+    return NextResponse.json({ error: "Checkout could not start. Try again." }, { status: 502 });
   }
-  return NextResponse.json({ url: checkout.url });
 }
