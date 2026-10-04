@@ -1,5 +1,8 @@
 "use client";
 
+import { useCheckJob } from "@/hooks/use-check-job";
+import { CheckRecovery } from "./CheckRecovery";
+
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -25,12 +28,15 @@ type Me =
   | { authenticated: true; plan: "free" | "pro"; runsToday: number };
 
 export function BulkForm(): React.ReactElement {
+  const recovery = useCheckJob("bulk");
   const { data: session, isPending } = useSession();
   const [me, setMe] = useState<Me | null>(null);
   const [text, setText] = useState<string>("");
   const [parsedFromFile, setParsedFromFile] = useState<Parsed[] | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [categories, setCategories] = useState<ProviderCategory[]>([...ALL_CATEGORIES]);
+  const [categories, setCategories] = useState<ProviderCategory[]>([
+    ...ALL_CATEGORIES,
+  ]);
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [running, setRunning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +51,12 @@ export function BulkForm(): React.ReactElement {
       .then(setMe)
       .catch(() => undefined);
   }, [session?.user]);
+
+  useEffect(() => {
+    setRows([]);
+    setRunning(false);
+    setError(null);
+  }, [recovery.owner]);
 
   const parsed = useMemo<Parsed[]>(() => {
     if (parsedFromFile && parsedFromFile.length > 0) return parsedFromFile;
@@ -93,7 +105,9 @@ export function BulkForm(): React.ReactElement {
     );
   }
 
-  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+  async function onFileChange(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<void> {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
@@ -120,23 +134,30 @@ export function BulkForm(): React.ReactElement {
 
   async function submit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
+    await run(parsed);
+  }
+
+  async function run(
+    items: Parsed[],
+    savedCategories = categories,
+  ): Promise<void> {
     if (running) return;
     setError(null);
-    if (parsed.length === 0) {
+    if (items.length === 0) {
       setError("Add at least one name.");
       return;
     }
-    if (overLimit) {
+    if (items.length > MAX_BULK) {
       setError(`Too many names — max ${MAX_BULK}.`);
       return;
     }
     const labelByQuery = new Map<string, string | undefined>();
-    for (const p of parsed) {
+    for (const p of items) {
       const key = p.query.toLowerCase();
       if (!labelByQuery.has(key)) labelByQuery.set(key, p.label);
     }
     const queries = Array.from(
-      new Set(parsed.map((p) => p.query.trim()).filter(Boolean)),
+      new Set(items.map((p) => p.query.trim()).filter(Boolean)),
     );
     const initRows: BulkRow[] = queries.map((q) => ({
       query: q,
@@ -152,62 +173,31 @@ export function BulkForm(): React.ReactElement {
     const local: BulkRow[] = initRows.map((r) => ({ ...r, results: [] }));
 
     try {
-      const res = await fetch("/api/check/bulk?stream=1", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ queries, categories }),
-      });
-      if (res.status === 401 || res.status === 402) {
-        const data = (await res.json()) as {
-          error?: string;
-          upgradeUrl?: string;
-          limit?: number;
-        };
-        if (data.error === "free_limit_size") {
-          setError(
-            `Free plan limit reached — max ${data.limit ?? FREE_NAMES_PER_REQUEST} names per request. Upgrade to Pro for unlimited.`,
-          );
-        } else if (data.error === "free_limit_runs") {
-          setError(
-            `Free plan limit reached — ${data.limit ?? 10} bulk runs per day. Upgrade to Pro for unlimited.`,
-          );
-        } else if (data.error === "unauthenticated") {
-          setError("Please sign in to run bulk checks.");
-        } else {
-          setError(data.error ?? `server error (${res.status})`);
-        }
-        setRunning(false);
-        return;
-      }
-      if (!res.ok || !res.body) {
-        const text = await res.text();
-        throw new Error(`server ${res.status}: ${text.slice(0, 200)}`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const blocks = buf.split("\n\n");
-        buf = blocks.pop() ?? "";
-        for (const block of blocks) {
-          const ev = parseSseBlock(block);
-          if (!ev) continue;
+      await recovery.run(
+        {
+          queries,
+          categories: savedCategories,
+          labels: Object.fromEntries(labelByQuery),
+        },
+        (ev) => {
           if (ev.event === "result") {
             const r = ev.data as ProviderResult;
             const idx = indexByQuery.get(r.query);
-            if (idx === undefined) continue;
+            if (idx === undefined) return;
             local[idx] = {
               ...local[idx],
-              results: [...local[idx].results, r],
+              results: [
+                ...local[idx].results.filter(
+                  (saved) => saved.providerId !== r.providerId,
+                ),
+                r,
+              ],
             };
             setRows([...local]);
           } else if (ev.event === "query_done") {
             const s = ev.data as CheckSummary;
             const idx = indexByQuery.get(s.query);
-            if (idx === undefined) continue;
+            if (idx === undefined) return;
             local[idx] = {
               ...local[idx],
               summary: s,
@@ -215,11 +205,9 @@ export function BulkForm(): React.ReactElement {
               done: true,
             };
             setRows([...local]);
-          } else if (ev.event === "error") {
-            setError((ev.data as { message: string }).message);
           }
-        }
-      }
+        },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -229,6 +217,33 @@ export function BulkForm(): React.ReactElement {
 
   return (
     <div className="space-y-6">
+      <CheckRecovery
+        pending={Boolean(recovery.pending)}
+        running={running}
+        error={recovery.storageError}
+        dismiss={recovery.dismiss}
+        resume={() => {
+          const saved = recovery.pending?.input as
+            | {
+                queries: string[];
+                categories: ProviderCategory[];
+                labels?: Record<string, string>;
+              }
+            | undefined;
+          if (saved) {
+            setText(saved.queries.join("\n"));
+            setParsedFromFile(null);
+            setCategories(saved.categories);
+            void run(
+              saved.queries.map((query) => ({
+                query,
+                label: saved.labels?.[query.toLowerCase()],
+              })),
+              saved.categories,
+            );
+          }
+        }}
+      />
       <form onSubmit={submit} className="space-y-4">
         <div className="grid gap-3 md:grid-cols-2">
           <div>
@@ -247,7 +262,9 @@ export function BulkForm(): React.ReactElement {
                 if (parsedFromFile) clearFile();
               }}
               rows={8}
-              placeholder={"one name per line\nor, comma, separated\nkairos\nlunarcore"}
+              placeholder={
+                "one name per line\nor, comma, separated\nkairos\nlunarcore"
+              }
               disabled={running}
               className="block w-full rounded-md border border-input bg-card px-3 py-2 font-mono text-sm placeholder:text-muted-foreground/60 focus:border-ring focus:outline-none disabled:opacity-50"
             />
@@ -327,7 +344,8 @@ export function BulkForm(): React.ReactElement {
 
         {overLimit && (
           <div className="rounded-md border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
-            {parsed.length} names parsed — max is {MAX_BULK}. Trim the list and try again.
+            {parsed.length} names parsed — max is {MAX_BULK}. Trim the list and
+            try again.
           </div>
         )}
 
@@ -449,20 +467,4 @@ function splitCsvLine(line: string): string[] {
   }
   out.push(cur);
   return out;
-}
-
-function parseSseBlock(block: string): { event: string; data: unknown } | null {
-  const lines = block.split("\n");
-  let event = "message";
-  let data = "";
-  for (const line of lines) {
-    if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) data += line.slice(5).trim();
-  }
-  if (!data) return null;
-  try {
-    return { event, data: JSON.parse(data) };
-  } catch {
-    return null;
-  }
 }

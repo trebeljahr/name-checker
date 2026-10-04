@@ -28,6 +28,38 @@ function fakeProvider(
 }
 
 describe("runCheckWithProviders — rollup", () => {
+  it("bounds a provider that ignores cancellation", async () => {
+    const provider: Provider = {
+      id: "stuck",
+      name: "stuck",
+      category: "social",
+      check: () => new Promise(() => {}),
+    };
+    const summary = await runCheckWithProviders([provider], {
+      query: "fixture",
+      timeoutMs: 20,
+    });
+    expect(summary.results[0]?.status).toBe("error");
+  });
+  it("does not persist drain cancellation as a completed provider error", async () => {
+    const controller = new AbortController();
+    const provider: Provider = {
+      id: "stuck",
+      name: "stuck",
+      category: "social",
+      check: () => new Promise(() => {}),
+    };
+    const results: ProviderResult[] = [];
+    const pending = runCheckWithProviders(
+      [provider],
+      { query: "fixture" },
+      (result) => results.push(result),
+      { signal: controller.signal },
+    );
+    controller.abort(new Error("fixture retirement"));
+    await expect(pending).rejects.toThrow("fixture retirement");
+    expect(results).toEqual([]);
+  });
   it("counts each status exactly once", async () => {
     const providers: Provider[] = [
       fakeProvider("a", "available"),
@@ -57,7 +89,10 @@ describe("runCheckWithProviders — verdict", () => {
         fakeProvider("domain-com", "taken", { category: "domain" }),
         fakeProvider("npm", "taken", { category: "package" }),
         fakeProvider("apple-appstore", "taken", { category: "appstore" }),
-        fakeProvider("trademark-uspto", "taken", { category: "trademark", detail: "IC 09" })
+        fakeProvider("trademark-uspto", "taken", {
+          category: "trademark",
+          detail: "IC 09",
+        }),
       ],
       { query: "foo" },
     );
@@ -68,12 +103,46 @@ describe("runCheckWithProviders — verdict", () => {
     const s = await runCheckWithProviders(
       [
         fakeProvider("domain-com", "available", { category: "domain" }),
-        fakeProvider("tm", "partial", { category: "trademark", detail: "similar" })
+        fakeProvider("tm", "partial", {
+          category: "trademark",
+          detail: "similar",
+        }),
       ],
       { query: "foo" },
     );
     expect(s.verdict).toBe("likely_available");
     expect(s.subverdicts.trademark).toBe("caution");
+  });
+
+  it("a minor social conflict does not override the weighted score", async () => {
+    const s = await runCheckWithProviders(
+      [
+        fakeProvider("instagram", "taken"),
+        fakeProvider("bluesky", "available"),
+      ],
+      { query: "foo" },
+    );
+    expect(s.score).toBe(97);
+    expect(s.verdict).toBe("likely_available");
+    expect(s.subverdicts.social).toBe("caution");
+  });
+
+  it("combined domain and package conflicts produce a mixed verdict", async () => {
+    const s = await runCheckWithProviders(
+      [
+        fakeProvider("domain-com", "taken", { category: "domain" }),
+        fakeProvider("npm", "taken", { category: "package" }),
+      ],
+      { query: "foo" },
+    );
+    expect(s.score).toBe(65);
+    expect(s.verdict).toBe("mixed");
+  });
+
+  it("no provider results cannot establish availability", async () => {
+    const s = await runCheckWithProviders([], { query: "foo" });
+    expect(s.results).toEqual([]);
+    expect(s.verdict).toBe("mixed");
   });
 
   it("all available → likely_available", async () => {
@@ -105,8 +174,7 @@ describe("runCheckWithProviders — concurrency cap", () => {
   it("never exceeds the configured concurrency", async () => {
     let inFlight = 0;
     let peak = 0;
-    const tick = (): Promise<void> =>
-      new Promise((r) => setTimeout(r, 30));
+    const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 30));
     const providers: Provider[] = Array.from({ length: 12 }, (_, i) => ({
       id: `p${i}`,
       name: `p${i}`,
@@ -138,10 +206,16 @@ describe("runCheckWithProviders — result order", () => {
       { query: "foo", concurrency: 3 },
       (r) => onResult.push(r),
     );
-    expect(s.results.map((r) => r.providerId)).toEqual(["slow", "fast", "medium"]);
-    expect(onResult.map((r) => r.providerId).sort()).toEqual(
-      ["fast", "medium", "slow"],
-    );
+    expect(s.results.map((r) => r.providerId)).toEqual([
+      "slow",
+      "fast",
+      "medium",
+    ]);
+    expect(onResult.map((r) => r.providerId).sort()).toEqual([
+      "fast",
+      "medium",
+      "slow",
+    ]);
   });
 });
 

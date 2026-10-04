@@ -1,5 +1,8 @@
 "use client";
 
+import { useCheckJob } from "@/hooks/use-check-job";
+import { CheckRecovery } from "./CheckRecovery";
+
 import { useEffect, useRef, useState } from "react";
 import type {
   CheckSummary,
@@ -27,14 +30,19 @@ export function CheckForm({
   initialSummary?: CheckSummary | null;
   autoRun?: boolean;
 } = {}): React.ReactElement {
+  const recovery = useCheckJob("single");
   const [query, setQuery] = useState<string>(initialQuery);
-  const [categories, setCategories] =
-    useState<ProviderCategory[]>([...ALL_CATEGORIES]);
+  const [categories, setCategories] = useState<ProviderCategory[]>([
+    ...ALL_CATEGORIES,
+  ]);
   const [running, setRunning] = useState<boolean>(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(
-    null,
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [results, setResults] = useState<ProviderResult[]>(
+    initialResults ?? [],
   );
-  const [results, setResults] = useState<ProviderResult[]>(initialResults ?? []);
   const [summary, setSummary] = useState<CheckSummary | null>(
     initialSummary ?? null,
   );
@@ -59,16 +67,23 @@ export function CheckForm({
     return () => window.removeEventListener("mousedown", onClick);
   }, []);
 
+  useEffect(() => {
+    setResults(initialResults ?? []);
+    setSummary(initialSummary ?? null);
+    setRunning(false);
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recovery.owner]);
   const didAutoRunRef = useRef(false);
   useEffect(() => {
-    if (didAutoRunRef.current) return;
+    if (!recovery.owner || didAutoRunRef.current) return;
     if (!autoRun) return;
     if (!initialQuery.trim()) return;
     if (initialResults && initialResults.length > 0) return;
     didAutoRunRef.current = true;
     void run(initialQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [recovery.owner]);
 
   function toggleCategory(c: ProviderCategory): void {
     setCategories((prev) =>
@@ -76,7 +91,7 @@ export function CheckForm({
     );
   }
 
-  async function run(q: string): Promise<void> {
+  async function run(q: string, savedCategories = categories): Promise<void> {
     const trimmed = q.trim();
     if (!trimmed || running) return;
     setRunning(true);
@@ -89,15 +104,6 @@ export function CheckForm({
     setVariantsError(null);
 
     try {
-      const res = await fetch("/api/check?stream=1", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query: trimmed, categories }),
-      });
-      if (!res.ok || !res.body) {
-        const text = await res.text();
-        throw new Error(`server responded ${res.status}: ${text.slice(0, 200)}`);
-      }
       window.history.replaceState(
         null,
         "",
@@ -106,30 +112,20 @@ export function CheckForm({
       pushRecent(trimmed);
       setRecent(getRecent());
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      const local: ProviderResult[] = [];
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const blocks = buf.split("\n\n");
-        buf = blocks.pop() ?? "";
-        for (const block of blocks) {
-          const ev = parseSseBlock(block);
-          if (!ev) continue;
+      const local = new Map<string, ProviderResult>();
+      await recovery.run(
+        { query: trimmed, categories: savedCategories },
+        (ev) => {
           if (ev.event === "result") {
-            local.push(ev.data as ProviderResult);
-            setResults([...local]);
-            setProgress({ done: local.length, total: NaN });
+            const result = ev.data as ProviderResult;
+            local.set(result.providerId, result);
+            setResults([...local.values()]);
+            setProgress({ done: local.size, total: NaN });
           } else if (ev.event === "done") {
             setSummary(ev.data as CheckSummary);
-          } else if (ev.event === "error") {
-            setError((ev.data as { message: string }).message);
           }
-        }
-      }
+        },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -169,6 +165,22 @@ export function CheckForm({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 text-foreground">
+      <CheckRecovery
+        pending={Boolean(recovery.pending)}
+        running={running}
+        error={recovery.storageError}
+        dismiss={recovery.dismiss}
+        resume={() => {
+          const saved = recovery.pending?.input as
+            | { query: string; categories: ProviderCategory[] }
+            | undefined;
+          if (saved) {
+            setQuery(saved.query);
+            setCategories(saved.categories);
+            void run(saved.query, saved.categories);
+          }
+        }}
+      />
       <form onSubmit={submit} className="mb-6 flex flex-col gap-3">
         <div className="relative flex gap-2" ref={wrapRef}>
           <input
@@ -329,8 +341,7 @@ function VariantPanel({
             Similar names
           </h2>
           <p className="text-xs text-muted-foreground">
-            Deterministic variants of{" "}
-            <span className="font-mono">{query}</span>
+            Deterministic variants of <span className="font-mono">{query}</span>
           </p>
         </div>
         {!variants && !loading && (
@@ -371,20 +382,4 @@ function VariantPanel({
       )}
     </section>
   );
-}
-
-function parseSseBlock(block: string): { event: string; data: unknown } | null {
-  const lines = block.split("\n");
-  let event = "message";
-  let data = "";
-  for (const line of lines) {
-    if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) data += line.slice(5).trim();
-  }
-  if (!data) return null;
-  try {
-    return { event, data: JSON.parse(data) };
-  } catch {
-    return null;
-  }
 }

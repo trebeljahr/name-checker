@@ -120,6 +120,7 @@ function install() {
     // A second SIGTERM means stop waiting.
     if (draining) return finish();
     draining = true;
+    process.env.HATCHKIT_DRAINING = "1";
     console.log(
       `[drain] SIGTERM: failing the health check for ${drainMs / 1000}s so the proxy stops routing here, then shutting down`,
     );

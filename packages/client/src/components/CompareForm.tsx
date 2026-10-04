@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCheckJob } from "@/hooks/use-check-job";
+import { CheckRecovery } from "./CheckRecovery";
+
+import { useEffect, useRef, useState } from "react";
 import type {
   CheckSummary,
   ProviderCategory,
@@ -41,10 +44,13 @@ export function CompareForm({
 }: {
   initialQueries?: string[];
 } = {}): React.ReactElement {
+  const recovery = useCheckJob("compare");
+  const didAutoRun = useRef(false);
   const initialText = initialQueries.join(", ");
   const [input, setInput] = useState<string>(initialText);
-  const [categories, setCategories] =
-    useState<ProviderCategory[]>([...ALL_CATEGORIES]);
+  const [categories, setCategories] = useState<ProviderCategory[]>([
+    ...ALL_CATEGORIES,
+  ]);
   const [running, setRunning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [matrix, setMatrix] = useState<LiveMatrix>({
@@ -54,13 +60,22 @@ export function CompareForm({
     summaries: [],
   });
 
+  useEffect(() => {
+    setMatrix({ queries: [], providers: [], cells: new Map(), summaries: [] });
+    setRunning(false);
+    setError(null);
+  }, [recovery.owner]);
+
   function toggleCategory(c: ProviderCategory): void {
     setCategories((prev) =>
       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
     );
   }
 
-  async function run(queries: string[]): Promise<void> {
+  async function run(
+    queries: string[],
+    savedCategories = categories,
+  ): Promise<void> {
     if (queries.length === 0 || running) return;
     setRunning(true);
     setError(null);
@@ -73,71 +88,46 @@ export function CompareForm({
     setMatrix(initial);
 
     try {
-      const res = await fetch("/api/check/compare", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ queries, categories }),
-      });
-      if (!res.ok || !res.body) {
-        const text = await res.text();
-        throw new Error(
-          `server responded ${res.status}: ${text.slice(0, 200)}`,
-        );
-      }
       const params = new URLSearchParams();
       params.set("names", queries.join(","));
       window.history.replaceState(null, "", `/compare?${params.toString()}`);
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
       const cells = new Map<string, ProviderResult>();
       const summaries: Array<CheckSummary | null> = queries.map(() => null);
       let providers: ProviderDescriptor[] = [];
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const blocks = buf.split("\n\n");
-        buf = blocks.pop() ?? "";
-        for (const block of blocks) {
-          const ev = parseSseBlock(block);
-          if (!ev) continue;
-          if (ev.event === "start") {
-            const data = ev.data as {
-              queries: string[];
-              providers: ProviderDescriptor[];
-            };
-            providers = data.providers;
-            setMatrix((m) => ({
-              ...m,
-              queries: data.queries,
-              providers: data.providers,
-            }));
-          } else if (ev.event === "result") {
-            const data = ev.data as { query: string; result: ProviderResult };
-            cells.set(makeKey(data.query, data.result.providerId), data.result);
-            setMatrix((m) => ({
-              ...m,
-              cells: new Map(cells),
-              providers,
-            }));
-          } else if (ev.event === "query_done") {
-            const data = ev.data as { index: number; summary: CheckSummary };
-            summaries[data.index] = data.summary;
-            setMatrix((m) => ({ ...m, summaries: summaries.slice() }));
-          } else if (ev.event === "done") {
-            const data = ev.data as { results: CheckSummary[] };
-            data.results.forEach((s, i) => {
-              summaries[i] = s;
-            });
-            setMatrix((m) => ({ ...m, summaries: summaries.slice() }));
-          } else if (ev.event === "error") {
-            setError((ev.data as { message: string }).message);
-          }
+      await recovery.run({ queries, categories: savedCategories }, (ev) => {
+        if (ev.event === "start") {
+          const data = ev.data as {
+            queries: string[];
+            providers: ProviderDescriptor[];
+          };
+          providers = data.providers;
+          setMatrix((m) => ({
+            ...m,
+            queries: data.queries,
+            providers: data.providers,
+          }));
+        } else if (ev.event === "result") {
+          const data = ev.data as { query: string; result: ProviderResult };
+          cells.set(makeKey(data.query, data.result.providerId), data.result);
+          setMatrix((m) => ({
+            ...m,
+            cells: new Map(cells),
+            providers,
+          }));
+        } else if (ev.event === "query_done") {
+          const data = ev.data as { index: number; summary: CheckSummary };
+          summaries[data.index] = data.summary;
+          setMatrix((m) => ({ ...m, summaries: summaries.slice() }));
+        } else if (ev.event === "done") {
+          const data = ev.data as { results: CheckSummary[] };
+          data.results.forEach((s, i) => {
+            summaries[i] = s;
+          });
+          setMatrix((m) => ({ ...m, summaries: summaries.slice() }));
         }
-      }
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -146,9 +136,11 @@ export function CompareForm({
   }
 
   useEffect(() => {
+    if (!recovery.owner || didAutoRun.current) return;
+    didAutoRun.current = true;
     if (initialQueries.length > 0) void run(initialQueries);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [recovery.owner]);
 
   async function submit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -190,6 +182,22 @@ export function CompareForm({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 text-foreground">
+      <CheckRecovery
+        pending={Boolean(recovery.pending)}
+        running={running}
+        error={recovery.storageError}
+        dismiss={recovery.dismiss}
+        resume={() => {
+          const saved = recovery.pending?.input as
+            | { queries: string[]; categories: ProviderCategory[] }
+            | undefined;
+          if (saved) {
+            setInput(saved.queries.join(", "));
+            setCategories(saved.categories);
+            void run(saved.queries, saved.categories);
+          }
+        }}
+      />
       <form onSubmit={submit} className="mb-6 flex flex-col gap-3">
         <label
           htmlFor="compare-names"
@@ -286,20 +294,4 @@ export function CompareForm({
       )}
     </div>
   );
-}
-
-function parseSseBlock(block: string): { event: string; data: unknown } | null {
-  const lines = block.split("\n");
-  let event = "message";
-  let data = "";
-  for (const line of lines) {
-    if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) data += line.slice(5).trim();
-  }
-  if (!data) return null;
-  try {
-    return { event, data: JSON.parse(data) };
-  } catch {
-    return null;
-  }
 }

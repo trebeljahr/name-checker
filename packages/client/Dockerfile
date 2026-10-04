@@ -41,13 +41,14 @@ COPY drain.cjs /usr/local/lib/drain.cjs
 RUN mkdir -p /app/data && chown node:node /app/data
 ENV AUTH_DB_PATH=/app/data/auth.db
 ENV SHUTDOWN_DRAIN_SECONDS=20
-ENV HEALTH_CHECK_PATH=/
+ENV HEALTH_CHECK_PATH=/api/health
 
 USER node
 EXPOSE 6657
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=5 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||'6657')).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=2s --timeout=5s --start-period=15s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||'6657')+'/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
 # Direct Node PID 1 receives Docker's SIGTERM and keeps the server alive
 # while its loopback health probe fails during the drain interval.

@@ -51,7 +51,8 @@ export function selectProviders(req: CheckRequest): Provider[] {
   return allProviders
     .filter((p) => {
       if (req.providers && !req.providers.includes(p.id)) return false;
-      if (req.excludeProviders && req.excludeProviders.includes(p.id)) return false;
+      if (req.excludeProviders && req.excludeProviders.includes(p.id))
+        return false;
       if (req.categories && !req.categories.includes(p.category)) return false;
       return true;
     })
@@ -65,11 +66,18 @@ export async function runCheck(
   return runCheckWithProviders(selectProviders(req), req, onResult);
 }
 
+export type CheckRunOptions = {
+  signal?: AbortSignal;
+  priorResults?: ProviderResult[];
+};
+
 export async function runCheckWithProviders(
   providers: Provider[],
   req: CheckRequest,
   onResult?: (r: ProviderResult) => void,
+  options: CheckRunOptions = {},
 ): Promise<CheckSummary> {
+  options.signal?.throwIfAborted();
   const startedAtDate = new Date();
   const concurrency = req.concurrency ?? 20;
   const timeoutMs = req.timeoutMs ?? 7_000;
@@ -81,17 +89,28 @@ export async function runCheckWithProviders(
 
   async function worker(): Promise<void> {
     while (true) {
+      options.signal?.throwIfAborted();
       const i = index++;
       if (i >= providers.length) return;
       const p = providers[i]!;
-      const r = await runOne(p, query, timeoutMs);
+      const saved = options.priorResults?.find(
+        (r) => r.providerId === p.id && r.query === query,
+      );
+      if (saved) {
+        results[i] = saved;
+        continue;
+      }
+      const r = await runOne(p, query, timeoutMs, options.signal);
+      options.signal?.throwIfAborted();
       results[i] = r;
       onResult?.(r);
     }
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(concurrency, providers.length || 1) }, () => worker()),
+    Array.from({ length: Math.min(concurrency, providers.length || 1) }, () =>
+      worker(),
+    ),
   );
 
   const finishedAtDate = new Date();
@@ -124,13 +143,26 @@ async function runOne(
   p: Provider,
   query: string,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<ProviderResult> {
   const start = Date.now();
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(new Error("provider timeout")), timeoutMs);
-  ctrl.signal.addEventListener("abort", () => clearTimeout(t), { once: true });
+  const t = setTimeout(
+    () => ctrl.abort(new Error("provider timeout")),
+    timeoutMs,
+  );
+  const combined = signal
+    ? AbortSignal.any([signal, ctrl.signal])
+    : ctrl.signal;
+  let rejectAbort: (() => void) | undefined;
+  const interrupted = new Promise<never>((_, reject) => {
+    rejectAbort = () => reject(combined.reason);
+    combined.addEventListener("abort", rejectAbort, { once: true });
+    if (combined.aborted) rejectAbort();
+  });
   try {
-    const out = await p.check(query, ctrl.signal);
+    // A provider that ignores AbortSignal must not keep a retiring worker alive.
+    const out = await Promise.race([p.check(query, combined), interrupted]);
     return {
       providerId: p.id,
       providerName: p.name,
@@ -140,6 +172,7 @@ async function runOne(
       ...out,
     };
   } catch (err) {
+    signal?.throwIfAborted();
     return {
       providerId: p.id,
       providerName: p.name,
@@ -151,6 +184,7 @@ async function runOne(
     };
   } finally {
     clearTimeout(t);
+    if (rejectAbort) combined.removeEventListener("abort", rejectAbort);
   }
 }
 
@@ -218,7 +252,9 @@ export async function runCheckBatch(
     excludeProviders: req.excludeProviders,
   });
   const cache = new Map<string, Promise<ProviderCheckOutput>>();
-  const cachedProviders = baseProviders.map((p) => wrapCachedProvider(p, cache));
+  const cachedProviders = baseProviders.map((p) =>
+    wrapCachedProvider(p, cache),
+  );
 
   const results: CheckSummary[] = new Array(queries.length);
   let cursor = 0;
@@ -236,9 +272,8 @@ export async function runCheckBatch(
   }
 
   await Promise.all(
-    Array.from(
-      { length: Math.min(batchConcurrency, queries.length) },
-      () => worker(),
+    Array.from({ length: Math.min(batchConcurrency, queries.length) }, () =>
+      worker(),
     ),
   );
 

@@ -3,7 +3,7 @@ import { CATEGORIES } from "./constants.js";
 
 export const providerCategorySchema = z.enum(CATEGORIES);
 
-const queryString = z.string().min(1).max(80);
+const queryString = z.string().trim().min(1).max(80);
 const timeoutMs = z.number().int().min(1000).max(60_000).optional();
 const concurrency = z.number().int().min(1).max(50).optional();
 
