@@ -13,7 +13,7 @@ export type WatchRow = {
   lastSummary: CheckSummary | null;
 };
 
-type RawWatchRow = {
+export type RawWatchRow = {
   id: string;
   user_id: string;
   query: string;
@@ -26,7 +26,10 @@ type RawWatchRow = {
 
 function fromCsv<T extends string>(csv: string | null): T[] | null {
   if (!csv) return null;
-  const parts = csv.split(",").map((s) => s.trim()).filter(Boolean);
+  const parts = csv
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   return parts.length ? (parts as T[]) : null;
 }
 
@@ -35,7 +38,7 @@ function toCsv(list: readonly string[] | null | undefined): string | null {
   return list.join(",");
 }
 
-function rowToWatch(r: RawWatchRow): WatchRow {
+export function rowToWatch(r: RawWatchRow): WatchRow {
   let summary: CheckSummary | null = null;
   if (r.last_summary_json) {
     try {

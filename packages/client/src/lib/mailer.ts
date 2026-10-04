@@ -1,49 +1,57 @@
-import nodemailer, { type Transporter } from "nodemailer";
+import { MailDeliveryError, sendSmtpWithDeadline } from "./mail-delivery";
 import { sendProjectSesEmail } from "./ses-email";
 
-let cached: Transporter | null = null;
-
-function getTransporter(): Transporter | null {
-  if (cached) return cached;
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT) || 587;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host) return null;
-  cached = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: user && pass ? { user, pass } : undefined,
-  });
-  return cached;
-}
-
-export async function sendMail(opts: {
-  to: string;
-  subject: string;
-  text: string;
-  html?: string;
-}): Promise<void> {
-  // hatchkit-ses-project-v1: explicit opt-in, never fall back after an SES failure.
+export async function sendMail(
+  opts: {
+    to: string;
+    subject: string;
+    text: string;
+    html?: string;
+  },
+  options: { signal?: AbortSignal } = {},
+): Promise<void> {
+  if (options.signal?.aborted)
+    throw new MailDeliveryError("not_sent", "Email cancelled before delivery");
+  // Explicit opt-in; no SMTP fallback after any SES failure.
   const transport = process.env.EMAIL_TRANSPORT;
   if (transport === "ses") {
-    await sendProjectSesEmail(opts, process.env);
+    await sendProjectSesEmail(opts, process.env, options.signal);
     return;
   }
-  if (transport && transport !== "smtp") throw new Error("Unknown EMAIL_TRANSPORT");
-  const t = getTransporter();
-  const from = process.env.MAIL_FROM ?? "name-check <noreply@example.com>";
-  if (!t) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("SMTP_HOST must be configured for production email");
-    }
-    console.log(
-      `[mailer] SMTP not configured. Would send to ${opts.to}:\n${opts.subject}\n${opts.text}`,
+  if (transport && transport !== "smtp")
+    throw new MailDeliveryError("not_sent", "Unknown EMAIL_TRANSPORT");
+  const host = process.env.SMTP_HOST;
+  if (!host)
+    throw new MailDeliveryError(
+      "not_sent",
+      "SMTP_HOST must be configured for email delivery",
     );
-    return;
-  }
   const replyTo = process.env.EMAIL_REPLY_TO;
-  if (replyTo && !/^[^\s<>@,]+@[^\s<>@,]+\.[^\s<>@,]+$/.test(replyTo)) throw new Error("Invalid EMAIL_REPLY_TO");
-  await t.sendMail({ from, ...opts, ...(replyTo ? { replyTo } : {}) });
+  if (replyTo && !/^[^\s<>@,]+@[^\s<>@,]+\.[^\s<>@,]+$/.test(replyTo))
+    throw new MailDeliveryError("not_sent", "Invalid EMAIL_REPLY_TO");
+  if (
+    !/^[^\s<>@,]+@[^\s<>@,]+\.[^\s<>@,]+$/.test(opts.to) ||
+    /[\r\n]/.test(opts.subject)
+  )
+    throw new MailDeliveryError(
+      "not_sent",
+      "Invalid email recipient or subject",
+    );
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const user = process.env.SMTP_USER,
+    pass = process.env.SMTP_PASS;
+  await sendSmtpWithDeadline(
+    {
+      host,
+      port,
+      secure: port === 465,
+      auth: user && pass ? { user, pass } : undefined,
+    },
+    {
+      from: process.env.MAIL_FROM ?? "name-check <noreply@example.com>",
+      ...opts,
+      ...(replyTo ? { replyTo } : {}),
+    },
+    options.signal,
+  );
 }
