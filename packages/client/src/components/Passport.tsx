@@ -6,6 +6,11 @@ import type {
   Reservation,
   ReservationStatus,
 } from "@starter/shared";
+import {
+  forgetBlueskyPassword,
+  prepareBlueskyPassword,
+  readBlueskyPassword,
+} from "@/lib/bluesky-password";
 
 const PLATFORMS: PassportPlatform[] = ["github", "npm", "bluesky"];
 
@@ -28,7 +33,7 @@ const PLATFORM_META: Record<
   bluesky: {
     title: "Bluesky handle",
     subtitle:
-      "Create a Bluesky account at <query>.bsky.social. Saves the generated app password to your reservation record.",
+      "Create a Bluesky account at <query>.bsky.social. Generates the password in your browser and shows it before the account is created.",
     emojiless: "<query>.bsky.social",
   },
 };
@@ -98,7 +103,6 @@ type BlueskyResponse = {
   ok: boolean;
   reservation: Reservation;
   handle: string;
-  password: string | null;
 };
 
 function emptyReservation(
@@ -136,9 +140,7 @@ export function Passport({ query }: PassportProps): React.ReactElement {
   const [npmToken, setNpmToken] = useState<string>("");
   const [bskyEmail, setBskyEmail] = useState<string>("");
   const [bskyInvite, setBskyInvite] = useState<string>("");
-  const [bskyPassword, setBskyPassword] = useState<
-    Record<string, string | null>
-  >({});
+  const [bskyPassword, setBskyPassword] = useState<string | null>(null);
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [error, setError] = useState<string | null>(null);
 
@@ -166,6 +168,10 @@ export function Passport({ query }: PassportProps): React.ReactElement {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    setBskyPassword(readBlueskyPassword(window.sessionStorage, query));
+  }, [query]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -245,6 +251,14 @@ export function Passport({ query }: PassportProps): React.ReactElement {
       setError("provide an email for the bluesky account");
       return;
     }
+    let password: string;
+    try {
+      password = prepareBlueskyPassword(window.sessionStorage, query);
+    } catch {
+      setError("could not save the generated password in this tab; nothing was sent");
+      return;
+    }
+    setBskyPassword(password);
     setBusy((b) => ({ ...b, bluesky: true }));
     setError(null);
     try {
@@ -254,6 +268,7 @@ export function Passport({ query }: PassportProps): React.ReactElement {
         body: JSON.stringify({
           query,
           email: bskyEmail.trim(),
+          password,
           inviteCode: bskyInvite.trim() || undefined,
         }),
       });
@@ -266,9 +281,6 @@ export function Passport({ query }: PassportProps): React.ReactElement {
       }
       if (body.reservation) {
         setReservations((p) => ({ ...p, bluesky: body.reservation }));
-      }
-      if (body.password) {
-        setBskyPassword((p) => ({ ...p, [body.handle]: body.password }));
       }
     } finally {
       setBusy((b) => ({ ...b, bluesky: false }));
@@ -417,19 +429,28 @@ export function Passport({ query }: PassportProps): React.ReactElement {
                 </a>
               )}
 
-              {platform === "bluesky" &&
-                r.status === "reserved" &&
-                bskyPassword[`${query}.bsky.social`] && (
-                  <div className="rounded border border-border bg-muted/40 p-2 font-mono text-[11px] text-muted-foreground">
-                    handle password:{" "}
-                    <span className="select-all text-foreground">
-                      {bskyPassword[`${query}.bsky.social`]}
-                    </span>
-                    <div className="text-[10px] text-muted-foreground/80">
-                      copy now — shown once.
-                    </div>
+              {platform === "bluesky" && bskyPassword && r.status !== "idle" && (
+                <div
+                  className="rounded border border-border bg-muted/40 p-2 font-mono text-[11px] text-muted-foreground"
+                  data-testid="passport-bluesky-password"
+                >
+                  handle password:{" "}
+                  <span className="select-all text-foreground">{bskyPassword}</span>
+                  <div className="text-[10px] text-muted-foreground/80">
+                    copy it now. Only this tab keeps it; the server does not.
                   </div>
-                )}
+                  <button
+                    type="button"
+                    className="mt-1 text-[10px] underline-offset-2 hover:underline"
+                    onClick={() => {
+                      forgetBlueskyPassword(window.sessionStorage, query);
+                      setBskyPassword(null);
+                    }}
+                  >
+                    I saved it, forget it
+                  </button>
+                </div>
+              )}
 
               <button
                 type="button"

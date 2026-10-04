@@ -7,11 +7,13 @@ import {
 } from "@starter/shared/passport/npm";
 import { readPassportSession } from "@/lib/passport-session";
 import {
+  attemptConflictResponse,
   persistError,
   persistResult,
   readPlanGate,
   requireQuery,
 } from "@/lib/passport-runtime";
+import { type AttemptRef, beginAttempt, markExternal } from "@/lib/passport-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,6 +61,15 @@ export async function POST(req: Request): Promise<Response> {
   }
   const username = process.env.NPM_USERNAME ?? "name-check";
   const email = process.env.NPM_EMAIL ?? "name-check@example.com";
+  let attempt: AttemptRef;
+  try {
+    attempt = beginAttempt({ userId: session.userId, query, platform: "npm", stage: "claimed" });
+    markExternal(attempt);
+  } catch (err) {
+    const conflict = attemptConflictResponse(err);
+    if (conflict) return conflict;
+    throw err;
+  }
   const result = await createNpmScopeReservation({
     npmToken,
     query,
@@ -76,6 +87,7 @@ export async function POST(req: Request): Promise<Response> {
     query,
     platform: "npm",
     result,
+    attempt,
   });
   return NextResponse.json(persisted, { status: persisted.ok ? 200 : 400 });
 }

@@ -4,22 +4,33 @@ import type {
   ReservationFailureCode,
   ReservationResult,
 } from "@starter/shared";
-import { setStatus } from "./passport-store";
+import { NextResponse } from "next/server";
+import { type AttemptRef, PassportAttemptError, finishAttempt, setStatus } from "./passport-store";
+
+export const GITHUB_USER_TIMEOUT_MS = 10_000;
 
 export type ReservationResponse = {
   ok: boolean;
   reservation: Reservation;
 };
 
+type StatusWrite = Parameters<typeof setStatus>[0];
+
+// Inside an attempt only its owner may write; outside one, writes never clobber it.
+async function write(attempt: AttemptRef | undefined, patch: StatusWrite): Promise<Reservation> {
+  return attempt ? finishAttempt(attempt, patch) : setStatus(patch);
+}
+
 export async function persistResult(opts: {
   userId: string;
   query: string;
   platform: PassportPlatform;
   result: ReservationResult;
+  attempt?: AttemptRef;
 }): Promise<ReservationResponse> {
   const { userId, query, platform, result } = opts;
   if (result.ok) {
-    const reservation = await setStatus({
+    const reservation = await write(opts.attempt, {
       userId,
       query,
       platform,
@@ -31,7 +42,7 @@ export async function persistResult(opts: {
     });
     return { ok: true, reservation };
   }
-  const reservation = await setStatus({
+  const reservation = await write(opts.attempt, {
     userId,
     query,
     platform,
@@ -50,8 +61,9 @@ export async function persistError(opts: {
   failureCode: ReservationFailureCode;
   detail: string;
   fallbackUrl?: string | null;
+  attempt?: AttemptRef;
 }): Promise<ReservationResponse> {
-  const reservation = await setStatus({
+  const reservation = await write(opts.attempt, {
     userId: opts.userId,
     query: opts.query,
     platform: opts.platform,
@@ -91,4 +103,9 @@ export function passportOrigin(): string | null {
     if (url.protocol !== "https:" && !(process.env.NODE_ENV !== "production" && url.hostname === "127.0.0.1")) return null;
     return url.origin;
   } catch { return null; }
+}
+
+export function attemptConflictResponse(err: unknown): Response | null {
+  if (!(err instanceof PassportAttemptError)) return null;
+  return NextResponse.json({ error: err.conflict }, { status: 409 });
 }

@@ -6,11 +6,13 @@ import {
 } from "@starter/shared/passport/github";
 import { readPassportSession } from "@/lib/passport-session";
 import {
+  beginAttempt,
   createOAuthSession,
   getReservation,
+  oauthAttemptId,
   setStatus,
 } from "@/lib/passport-store";
-import { readPlanGate, requireQuery } from "@/lib/passport-runtime";
+import { attemptConflictResponse, readPlanGate, requireQuery } from "@/lib/passport-runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,22 +75,27 @@ export async function POST(req: Request): Promise<Response> {
     platform: "github",
     redirectUri: `${origin}/api/passport/callback/github`,
   });
+  let attempt;
+  try {
+    // The state's hash names the attempt, so only the newest redirect can claim it.
+    attempt = beginAttempt({
+      userId: session.userId, query, platform: "github", stage: "oauth", attemptId: oauthAttemptId(state),
+    });
+  } catch (err) {
+    const conflict = attemptConflictResponse(err);
+    if (conflict) return conflict;
+    throw err;
+  }
   const callbackUri = `${origin}/api/passport/callback/github`;
   const authorizeUrl = githubAuthorizeUrl({
     clientId,
     redirectUri: callbackUri,
     state,
   });
-  const updated = await setStatus({
-    userId: session.userId,
-    query,
-    platform: "github",
-    status: "connecting",
-  });
   return NextResponse.json({
     mode: "oauth",
     authorizeUrl,
     fallbackUrl: githubSoftFallbackUrl(query),
-    reservation: updated,
+    reservation: await getReservation(attempt.userId, query, "github"),
   });
 }

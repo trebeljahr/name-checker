@@ -6,8 +6,8 @@ import {
   exchangeGithubCode,
   githubSoftFallbackUrl,
 } from "@starter/shared/passport/github";
-import { consumeOAuthSession } from "@/lib/passport-store";
-import { persistError, persistResult } from "@/lib/passport-runtime";
+import { PassportAttemptError, consumeOAuthSession, markExternal } from "@/lib/passport-store";
+import { GITHUB_USER_TIMEOUT_MS, persistError, persistResult } from "@/lib/passport-runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,6 +57,7 @@ export async function GET(
       failureCode: "soft_fallback",
       detail: errParam ?? "missing code",
       fallbackUrl: githubSoftFallbackUrl(session.query),
+      attempt: session.attempt,
     });
     return passportRedirect(origin, session.query, "#github=failed");
   }
@@ -70,6 +71,7 @@ export async function GET(
       failureCode: "missing_credentials",
       detail: "github oauth credentials are not configured on the server",
       fallbackUrl: githubSoftFallbackUrl(session.query),
+      attempt: session.attempt,
     });
     return passportRedirect(origin, session.query, "#github=failed");
   }
@@ -90,6 +92,7 @@ export async function GET(
       failureCode: "network_error",
       detail: err instanceof Error ? err.message : "github code exchange failed",
       fallbackUrl: githubSoftFallbackUrl(session.query),
+      attempt: session.attempt,
     });
     return passportRedirect(origin, session.query, "#github=failed");
   }
@@ -98,6 +101,7 @@ export async function GET(
       authorization: `Bearer ${accessToken}`,
       accept: "application/vnd.github+json",
     },
+    signal: AbortSignal.timeout(GITHUB_USER_TIMEOUT_MS),
   })
     .then((r) => (r.ok ? (r.json() as Promise<{ login?: string }>) : null))
     .catch(() => null);
@@ -110,8 +114,15 @@ export async function GET(
       failureCode: "insufficient_perms",
       detail: "could not resolve github user from access token",
       fallbackUrl: githubSoftFallbackUrl(session.query),
+      attempt: session.attempt,
     });
     return passportRedirect(origin, session.query, "#github=failed");
+  }
+  try {
+    markExternal(session.attempt);
+  } catch (err) {
+    if (err instanceof PassportAttemptError) return passportRedirect(origin, session.query, "#github=failed");
+    throw err;
   }
   const result = await createGithubOrg({
     accessToken,
@@ -128,6 +139,7 @@ export async function GET(
     query: session.query,
     platform: "github",
     result,
+    attempt: session.attempt,
   });
   const hash = persisted.ok ? "#github=reserved" : "#github=failed";
   return passportRedirect(origin, session.query, hash);
