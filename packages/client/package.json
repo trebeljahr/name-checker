@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@hatchkit/dev-plugin-next": "^0.2.18",
-    "@openpanel/nextjs": "^1.5.1",
     "@sentry/nextjs": "^11.1.0",
     "@starter/shared": "workspace:*",
     "@stripe/stripe-js": "^9.17.0",

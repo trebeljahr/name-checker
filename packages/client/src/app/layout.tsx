@@ -33,16 +33,6 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
-        {/* OpenPanel analytics — replace with your client ID */}
-        {process.env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID && (
-          <script
-            defer
-            async
-            src="https://openpanel.dev/op.js"
-            data-client-id={process.env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID}
-            data-track-screenviews="true"
-          />
-        )}
         {process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN && (
           <script
             defer
