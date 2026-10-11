@@ -10,7 +10,10 @@ A push to `main` builds and deploys production. Nothing else does.
 2. `e2e`: Playwright against a dev server.
 3. `build-client`: builds `packages/client/Dockerfile` and pushes
    `ghcr.io/trebeljahr/name-checker-client` as `:main` and `:<commit sha>`.
-   The commit is passed as the `BUILD_COMMIT` build argument.
+   The commit is passed as the `BUILD_COMMIT` build argument. The Plausible
+   tag is built in from the repository variables
+   `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` and `NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL`;
+   without them the pages carry no analytics script.
 4. `deploy`: sends Coolify a signed `push` payload for the one app that
    `COOLIFY_RESOURCE_UUID` names. The payload lists `.hatchkit/deploy-webhook`
    as the changed file, which is that app's only watch path, so Coolify

@@ -19,9 +19,16 @@ RUN pnpm --filter @starter/shared run build
 # The commit this image is built from: /version.json and the pages'
 # build-commit meta tag report it, so a release can be checked from outside.
 ARG BUILD_COMMIT=unknown
+# Next inlines NEXT_PUBLIC_* at build time, also into server-rendered
+# pages: the Plausible tag exists only if these are set here. Runtime env
+# on the container cannot add it. Both are public values (CI repo variables).
+ARG NEXT_PUBLIC_PLAUSIBLE_DOMAIN
+ARG NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL
 RUN BETTER_AUTH_URL=http://127.0.0.1:51847 \
     BETTER_AUTH_SECRET=ci-build-fixture-secret-not-for-production-2026 \
     NEXT_PUBLIC_BUILD_COMMIT=$BUILD_COMMIT \
+    NEXT_PUBLIC_PLAUSIBLE_DOMAIN=$NEXT_PUBLIC_PLAUSIBLE_DOMAIN \
+    NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL=$NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL \
     pnpm --filter @starter/client run build
 
 # ── Stage 3: Production runtime ─────────────────────────────────────

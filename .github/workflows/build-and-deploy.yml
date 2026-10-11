@@ -60,8 +60,14 @@ jobs:
           context: .
           file: packages/client/Dockerfile
           push: true
+          # NEXT_PUBLIC_* are inlined at image BUILD time; runtime env on
+          # the container does nothing for them. The analytics values are
+          # GitHub Actions repo VARIABLES (not secrets):
+          #   gh variable set NEXT_PUBLIC_PLAUSIBLE_DOMAIN --body names.trebeljahr.com
           build-args: |
             BUILD_COMMIT=${{ github.sha }}
+            NEXT_PUBLIC_PLAUSIBLE_DOMAIN=${{ vars.NEXT_PUBLIC_PLAUSIBLE_DOMAIN }}
+            NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL=${{ vars.NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL }}
           tags: |
             ghcr.io/${{ github.repository }}-client:main
             ghcr.io/${{ github.repository }}-client:${{ github.sha }}
