@@ -32,3 +32,19 @@ it("does not mark a production replica ready without authentication configuratio
   );
   expect((await GET()).status).toBe(200);
 });
+it("reports one database identity and refuses a database it was not told to expect", async () => {
+  const first = (await (await GET()).json()) as { databaseId: string };
+  expect(first.databaseId).toMatch(/^[0-9a-f-]{36}$/);
+  expect(((await (await GET()).json()) as { databaseId: string }).databaseId).toBe(
+    first.databaseId,
+  );
+  vi.stubEnv("AUTH_DB_EXPECTED_ID", first.databaseId);
+  expect((await GET()).status).toBe(200);
+  vi.stubEnv("AUTH_DB_EXPECTED_ID", "00000000-0000-4000-8000-000000000000");
+  const refused = await GET();
+  expect(refused.status).toBe(503);
+  expect(await refused.json()).toEqual({
+    status: "unavailable",
+    reason: "database identity mismatch",
+  });
+});

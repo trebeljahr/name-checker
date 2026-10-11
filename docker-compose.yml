@@ -12,6 +12,9 @@ services:
       PORT: "6657"
       HOSTNAME: "0.0.0.0"
       AUTH_DB_PATH: /app/data/auth.db
+      # Optional guard, see docs/deploy.md: with it set, a container whose
+      # database reports another id never turns healthy.
+      AUTH_DB_EXPECTED_ID: ${AUTH_DB_EXPECTED_ID:-}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be configured in Coolify}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL must be configured in Coolify}
       EMAIL_TRANSPORT: ${EMAIL_TRANSPORT:-ses}

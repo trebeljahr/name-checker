@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/styles/globals.css";
+import { BUILD_COMMIT } from "@/lib/build-identity";
 
 export const metadata: Metadata = {
   title: {
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
   description:
     "Check name availability across domains, trademarks, app stores, and company registries.",
   manifest: "/manifest.json",
+  // <meta name="build-commit">: which commit rendered this page.
+  other: { "build-commit": BUILD_COMMIT },
   icons: {
     icon: [
       { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },

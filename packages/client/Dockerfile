@@ -16,13 +16,19 @@ COPY packages/client packages/client
 RUN pnpm --filter @starter/shared run build
 # Fixtures exist only for prerendering in this discarded build stage.
 # Runtime receives real auth configuration from Coolify.
+# The commit this image is built from: /version.json and the pages'
+# build-commit meta tag report it, so a release can be checked from outside.
+ARG BUILD_COMMIT=unknown
 RUN BETTER_AUTH_URL=http://127.0.0.1:51847 \
     BETTER_AUTH_SECRET=ci-build-fixture-secret-not-for-production-2026 \
+    NEXT_PUBLIC_BUILD_COMMIT=$BUILD_COMMIT \
     pnpm --filter @starter/client run build
 
 # ── Stage 3: Production runtime ─────────────────────────────────────
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
+ARG BUILD_COMMIT=unknown
+LABEL org.opencontainers.image.revision=$BUILD_COMMIT
 
 # Coolify's configured health probe runs curl inside the image.
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
