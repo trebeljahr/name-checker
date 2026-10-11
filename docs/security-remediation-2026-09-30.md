@@ -31,12 +31,12 @@ Primary advisory references:
 - Final production and complete dependency audits: zero reported vulnerabilities. Peer dependency check: no issues. These are local registry results, not a deployed-image audit.
 - `git diff --check` passed.
 - Follow-up validation on committed `c9acdd6`: all workspace typechecks and the full production build passed. All 22 client tests passed. Standalone runtime rejected forged legacy cookies with 401 on status, npm, GitHub, Bluesky, and callback routes using a temporary database and fake configuration.
-- Shared suite: 51 passed, three verdict assertions failed. Shared source and tests are byte-for-byte unchanged from pre-remediation commit `9559bf9`; existing uncommitted edits in the primary checkout were not included or changed. This is not a fully green repository test gate.
+- Shared verdict follow-up: all 57 shared tests and 23 client tests pass. Existing weighted-scoring test corrections were incorporated; inconclusive or empty results now return `mixed`. Shared typecheck and build passed after this change.
 - Build emitted the existing dynamic-import warning from `packages/shared/src/cache.ts`. Docker image build and deployed-image verification remain untested in this chat. The temporary standalone process stopped and the shared validation lock was released.
 
 ## Outstanding validation and rollout
 
-1. Resolve the three shared verdict-test failures in coordination with the existing uncommitted orchestrator work before treating the whole repository as green. Check the Docker image build separately; no image was built here.
+1. Check the Docker image build separately; no image was built here. The earlier shared verdict-test failures are resolved.
 2. Review dependency major-version changes through the build and fake-client tests before deployment. Do not treat a clean advisory audit as compatibility proof.
 3. Deploy only with explicit user authorization. No push, PR, publish, provider change, service restart, credential revocation, or production data migration was performed.
 4. Configure durable SQLite storage at `AUTH_DB_PATH`; containers use `/app/data/auth.db`. Mount a persistent volume and ensure all replicas use a supported shared database topology. Separate local SQLite files do not share sessions or OAuth state.

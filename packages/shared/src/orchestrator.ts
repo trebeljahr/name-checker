@@ -130,7 +130,11 @@ export async function runCheckWithProviders(
   };
 }
 
-function verdictFromScore(score: number, rollup: Record<CheckStatus, number>): Verdict {
+function verdictFromScore(
+  score: number,
+  rollup: Record<CheckStatus, number>,
+): Verdict {
+  // A score without confirmed results cannot establish availability.
   if (rollup.available === 0 && rollup.taken === 0 && rollup.partial === 0) {
     return "mixed";
   }
