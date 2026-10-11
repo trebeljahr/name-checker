@@ -60,6 +60,8 @@ jobs:
           context: .
           file: packages/client/Dockerfile
           push: true
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
           tags: |
             ghcr.io/${{ github.repository }}-client:main
             ghcr.io/${{ github.repository }}-client:${{ github.sha }}
@@ -95,10 +97,10 @@ jobs:
           COOLIFY_CLIENT_DEPLOY_SECRET: ${{ secrets.COOLIFY_CLIENT_DEPLOY_SECRET }}
           COOLIFY_CLIENT_DEPLOY_REPOSITORY: ${{ secrets.COOLIFY_CLIENT_DEPLOY_REPOSITORY }}
           COOLIFY_CLIENT_DEPLOY_BRANCH: ${{ secrets.COOLIFY_CLIENT_DEPLOY_BRANCH }}
-        # The first push must build its image without redeploying the legacy
-        # Compose resource. Enable only after the Image app is live and the
-        # webhook secrets target that exact resource.
-        if: env.COOLIFY_BASE_URL != '' && vars.NAME_CHECKER_IMAGE_ROLLOUT_READY == 'true'
+        # Every push deploys the app COOLIFY_RESOURCE_UUID names: today the
+        # Compose app, after `hatchkit migrate-runtime` the Docker Image app
+        # (hatchkit repoints the secrets). See docs/deploy.md.
+        if: env.COOLIFY_BASE_URL != ''
         run: |
           set -euo pipefail
           deployed=0
