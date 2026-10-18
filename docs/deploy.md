@@ -98,10 +98,10 @@ any other database file answers 503 with `"reason":"database identity mismatch"`
   revert the commit and push. Remove `SERVER_IMAGE` again before the next
   push. Every schema change so far adds tables and alters none, so an older
   image reads a newer database.
-- The whole split: delete the route `names.trebeljahr.com/*` on the zone
-  (pages return to the origin within seconds) and set `SERVER_IMAGE` to the
-  last Next image, `ghcr.io/trebeljahr/name-checker-client:df90831ea0b08ea5b89c2c3ab17f9736ff70afde`,
-  which serves pages and `/api/*` together.
+- The whole split: there is no image left that serves pages from Coolify.
+  The last Next image, `ghcr.io/trebeljahr/name-checker-client`, was deleted
+  on 2026-10-18 (GitHub can restore a deleted package for 30 days, until
+  2026-11-17). Roll the Worker back to an earlier version instead.
 
 ## Moving the server to a Docker Image app (rolling deploys)
 
