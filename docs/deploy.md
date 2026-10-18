@@ -26,7 +26,11 @@ Until `hatchkit migrate-runtime` moves it (below), the server runs on the
 Docker Compose app `bwmqy47daye8znhfspycftmi` from `docker-compose.yml`. Its
 service is still called `client`: Coolify keys the app's domain and its
 `SERVICE_*` variables on the service name, so renaming it would drop the
-route.
+route. A Compose deploy stops the old container before it starts the new
+one; the image's 20 s SIGTERM drain (`SHUTDOWN_DRAIN_SECONDS`) only delays
+that stop there, as it did for the Next image. It is kept because the Image
+app after `migrate-runtime` needs it, and that move copies this service's
+environment.
 
 ## What a push runs
 

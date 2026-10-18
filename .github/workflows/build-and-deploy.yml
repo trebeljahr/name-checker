@@ -100,7 +100,9 @@ jobs:
       # A Worker version serves only its own files: carry the chunks of the
       # last two releases so tabs opened on them keep working. The script is
       # hatchkit's (cli/src/templates/client-host/scripts/carry-static.mjs).
-      - run: node scripts/carry-static.mjs --site "$SITE_URL" --out packages/client/out
+      # The first Worker version was uploaded by hand with a manifest, so a
+      # missing live manifest is an error here, not a fresh start.
+      - run: node scripts/carry-static.mjs --site "$SITE_URL" --out packages/client/out --require-previous
       - run: node packages/client/scripts/check-export.mjs
       - name: Upload the client version (not live yet)
         id: upload
@@ -134,7 +136,11 @@ jobs:
       - name: Check the server image can be pulled anonymously
         run: |
           image="${GITHUB_REPOSITORY}-server"
-          token=$(curl -fsS "https://ghcr.io/token?scope=repository:${image}:pull" | jq -r '.token // empty' || true)
+          if ! token=$(curl -fsS "https://ghcr.io/token?scope=repository:${image}:pull" | jq -r '.token // empty') \
+            || [ -z "$token" ]; then
+            echo "::error::No anonymous pull token for ${image}: the package is private (make it public, then re-run this job) or GHCR is unreachable."
+            exit 1
+          fi
           if ! curl -fsS -o /dev/null -H "Authorization: Bearer ${token}" \
             -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
             "https://ghcr.io/v2/${image}/manifests/${GITHUB_SHA}"; then
@@ -147,7 +153,9 @@ jobs:
       # leave names.trebeljahr.com without pages. See docs/deploy.md.
       - name: Refuse while the Next container serves the pages
         run: |
-          if curl -fsSI "$SITE_URL/" | grep -qi '^x-powered-by: *next\.js'; then
+          # Fail closed: no answer from / is not proof that the Worker serves it.
+          headers=$(curl -fsSI "$SITE_URL/")
+          if printf '%s' "$headers" | grep -qi '^x-powered-by: *next\.js'; then
             echo "::error::$SITE_URL/ is still served by the Next container. Create the Worker route first (docs/deploy.md)."
             exit 1
           fi

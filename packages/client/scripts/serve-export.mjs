@@ -118,6 +118,15 @@ function proxy(req, res) {
 }
 
 const server = createServer((req, res) => {
+  try {
+    handle(req, res);
+  } catch {
+    // A malformed escape such as /%E0 must not stop the server.
+    if (!res.headersSent) res.writeHead(400).end("bad request\n");
+  }
+});
+
+function handle(req, res) {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (url.pathname.startsWith("/api/")) return proxy(req, res);
 
@@ -136,7 +145,7 @@ const server = createServer((req, res) => {
   }
   if (asset?.file) return sendFile(res, asset.file);
   sendFile(res, join(out, "404.html"), 404);
-});
+}
 
 server.listen(port, "127.0.0.1", () => {
   console.log(`serve-export: http://127.0.0.1:${port} (api → ${api.origin})`);

@@ -1,5 +1,4 @@
 import type { Request as ExpressRequest, RequestHandler, Response as ExpressResponse } from "express";
-import { once } from "node:events";
 
 /**
  * The API handlers take a Fetch `Request` and return a `Response`, the
@@ -129,7 +128,7 @@ async function sendWebResponse(
       const { done, value } = await reader.read();
       if (done) break;
       if (!res.write(value)) {
-        await Promise.race([once(res, "drain"), once(res, "close")]);
+        await drainOrClose(res);
         if (res.destroyed) break;
       }
     }
@@ -141,4 +140,17 @@ async function sendWebResponse(
   } finally {
     signal.removeEventListener("abort", stop);
   }
+}
+
+/** Wait for room in the socket buffer, or for the client to go away. */
+function drainOrClose(res: ExpressResponse): Promise<void> {
+  return new Promise((resolve) => {
+    const done = (): void => {
+      res.off("drain", done);
+      res.off("close", done);
+      resolve();
+    };
+    res.on("drain", done);
+    res.on("close", done);
+  });
 }
