@@ -21,5 +21,11 @@
     "slug": "names",
     "domain": "local.trebeljahr.com"
   },
-  "coolifyRuntime": "compose"
+  "coolifyRuntime": "image",
+  "containerPorts": {
+    "app": 6657
+  },
+  "coolifyApps": {
+    "app": "k9d64bii0gm25hul1hiafpe0"
+  }
 }
