@@ -23,9 +23,9 @@ single-host database highly available.
 
 Only authorized cron requests capture fresh due watches. Capture is one SQLite
 statement with a unique active-receipt constraint per watch. Each request or
-startup scan processes at most ten receipts within a 20-second budget. Startup
-instrumentation resumes existing receipts only; it does not schedule fresh
-checks and does not run during build, Edge, development, or tests.
+startup scan processes at most ten receipts within a 20-second budget. The
+startup worker (`src/workers.ts`) resumes existing receipts only; it does not
+schedule fresh checks and does not run in development or tests.
 
 A worker renews its ten-second token lease every 250 ms. Every checkpoint and
 summary transition checks the token and expiration inside an immediate SQLite
@@ -87,4 +87,5 @@ capture, fencing, checkpoint recovery, atomic intent, and late-sender refusal.
 `mail-delivery.test.ts` uses synthetic localhost SMTP peers, including stalled
 DATA and implicit TLS; it never sends external email. SES tests replace the SDK
 with an in-memory fixture and verify abort and disabled retries. Route and
-instrumentation tests verify authorization and build/runtime guards.
+startup-worker tests (`watch-route.test.ts`, `workers.test.ts`) verify
+authorization and the production-only start.

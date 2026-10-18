@@ -67,8 +67,8 @@ packages/client/data/
 docs-site/.docusaurus/
 docs-site/build/
 
-# Auth / SQLite (better-auth + subscription + usage data)
-packages/client/data/
+# Auth / SQLite (better-auth + subscription + usage data). The API server's
+# dev database; packages/client/data/ above is where it lived before the split.
 
 # Misc
 *.log
