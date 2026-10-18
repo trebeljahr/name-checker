@@ -67,8 +67,10 @@ packages/client/data/
 docs-site/.docusaurus/
 docs-site/build/
 
-# Auth / SQLite (better-auth + subscription + usage data). The API server's
-# dev database; packages/client/data/ above is where it lived before the split.
+# Auth / SQLite (better-auth + subscription + usage data): the API server's
+# dev database (AUTH_DB_PATH default). packages/client/data/ above is where
+# it lived before the split.
+packages/server/data/
 
 # Misc
 *.log
@@ -80,6 +82,3 @@ data/passport-sessions.json
 
 # Commit encrypted configuration; private .env.keys stays ignored.
 !/packages/client/.env.production
-
-# API server dev database (packages/server, AUTH_DB_PATH default)
-packages/server/data/
