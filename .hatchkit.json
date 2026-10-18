@@ -20,5 +20,6 @@
   "localDev": {
     "slug": "names",
     "domain": "local.trebeljahr.com"
-  }
+  },
+  "coolifyRuntime": "compose"
 }
