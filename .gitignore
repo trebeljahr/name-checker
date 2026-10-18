@@ -80,3 +80,6 @@ data/passport-sessions.json
 
 # Commit encrypted configuration; private .env.keys stays ignored.
 !/packages/client/.env.production
+
+# API server dev database (packages/server, AUTH_DB_PATH default)
+packages/server/data/

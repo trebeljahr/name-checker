@@ -1,0 +1,19 @@
+{
+  // Typecheck only. `pnpm build` bundles src/index.ts with esbuild, which
+  // keeps the extensionless imports the modules had as Next route code;
+  // node_modules stay external (better-sqlite3 is native).
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // DOM for the Fetch types the handlers share with the browser code
+    // (`Response.json()` and friends); the tests also import two client
+    // modules (check-job-client, bluesky-password).
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src", "vitest.config.ts"]
+}

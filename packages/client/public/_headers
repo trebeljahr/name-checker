@@ -1,0 +1,18 @@
+# Cloudflare Workers static assets: https://developers.cloudflare.com/workers/static-assets/headers/
+# No long `immutable` rule for /_next/static/*: Cloudflare would send it on
+# a 404 for a missing chunk too, and browsers would keep that 404 for a year.
+# The default (max-age=0, must-revalidate, with an ETag) costs only free
+# revalidation requests.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+
+# The release check reads this right after a deploy.
+/version.json
+  Cache-Control: no-store, must-revalidate
+
+# The next upload reads it to carry this release's chunks (scripts/carry-static.mjs).
+/release-assets.json
+  Cache-Control: no-store, must-revalidate

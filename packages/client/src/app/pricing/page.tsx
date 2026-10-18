@@ -5,7 +5,7 @@ import { UpgradeButton } from "@/components/UpgradeButton";
 import {
   FREE_NAMES_PER_REQUEST,
   FREE_RUNS_PER_DAY,
-} from "@/lib/plan-constants";
+} from "@starter/shared/plan-constants";
 
 export const metadata = {
   title: "Pricing",

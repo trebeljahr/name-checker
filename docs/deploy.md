@@ -2,28 +2,72 @@
 
 A push to `main` builds and deploys production. Nothing else does.
 
+## What runs in production
+
+One hostname, two halves:
+
+| Path on names.trebeljahr.com | Served by |
+| --- | --- |
+| `/api/*` | The API server (`packages/server`), Coolify project `name-checker`, image `ghcr.io/trebeljahr/name-checker-server` |
+| `/.well-known/acme-challenge/*` | Traefik on Coolify (it holds the origin certificate) |
+| everything else | The Cloudflare Worker `name-checker-client`: the static export of `packages/client` |
+
+Cloudflare decides by Workers routes on the `trebeljahr.com` zone: `/api/*`
+and the ACME path are routes with no Worker, so they go to the origin; `/*`
+is the Worker. No Worker code runs: requests to static assets and to routes
+with no Worker do not count toward the Workers Free request cap.
+
+The API server mounts the named volume `auth-data` at `/app/data`. It holds
+`auth.db`: accounts, sessions, subscriptions, usage, watches, check jobs and
+billing records. It is production state. On the host the volume is
+`bwmqy47daye8znhfspycftmi_auth-data` (the Compose app's uuid).
+
+Until `hatchkit migrate-runtime` moves it (below), the server runs on the
+Docker Compose app `bwmqy47daye8znhfspycftmi` from `docker-compose.yml`. Its
+service is still called `client`: Coolify keys the app's domain and its
+`SERVICE_*` variables on the service name, so renaming it would drop the
+route.
+
 ## What a push runs
 
 `.github/workflows/build-and-deploy.yml`, in order:
 
-1. `verify`: install, build every package, unit tests.
-2. `e2e`: Playwright against a dev server.
-3. `build-client`: builds `packages/client/Dockerfile` and pushes
-   `ghcr.io/trebeljahr/name-checker-client` as `:main` and `:<commit sha>`.
-   The commit is passed as the `BUILD_COMMIT` build argument. The Plausible
-   tag is built in from the repository variables
-   `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` and `NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL`;
-   without them the pages carry no analytics script.
-4. `deploy`: sends Coolify a signed `push` payload for the one app that
-   `COOLIFY_RESOURCE_UUID` names. The payload lists `.hatchkit/deploy-webhook`
-   as the changed file, which is that app's only watch path, so Coolify
-   deploys for this step and for nothing else.
+1. `verify`: install, build every package, typecheck, unit tests.
+2. `e2e`: Playwright against the static export, served the way the Worker
+   serves it (`packages/client/scripts/serve-export.mjs`), with the API
+   server behind `/api`.
+3. `build-server`: builds `packages/server/Dockerfile`, pushes
+   `ghcr.io/trebeljahr/name-checker-server` as `:main` and `:<commit sha>`.
+4. `build-client`: `next build` (static export), carries the hashed chunks
+   of the last two releases into `out/` (`scripts/carry-static.mjs`, copied
+   from hatchkit), checks
+   the export, and uploads it as a new Worker version with
+   `wrangler versions upload`. Nothing is live yet.
+5. `deploy`:
+   - refuses to run while `/` still answers `x-powered-by: Next.js` (the
+     Next container still serves the pages; the server image has none);
+   - sends Coolify a signed `push` payload for the app
+     `COOLIFY_RESOURCE_UUID` names;
+   - waits until `/api/health` reports this commit as `version`;
+   - activates the uploaded Worker version (`wrangler versions deploy`);
+   - waits until `/version.json` reports this commit.
 
-The step needs the repository secrets `COOLIFY_BASE_URL`,
-`COOLIFY_RESOURCE_UUID`, `COOLIFY_DEPLOY_SECRET`, `COOLIFY_DEPLOY_REPOSITORY`
-and `COOLIFY_DEPLOY_BRANCH`. Hatchkit writes all five (`hatchkit sync`,
-`hatchkit secrets isolate`). There is no gate variable: if the secrets are
-set, a green build deploys.
+Server first, client second: the client switch takes seconds and only
+happens once the new server answers. A failure after the server step leaves
+the new server with the previous client, which is the compatible direction.
+
+Secrets: `COOLIFY_BASE_URL`, `COOLIFY_RESOURCE_UUID`, `COOLIFY_DEPLOY_SECRET`,
+`COOLIFY_DEPLOY_REPOSITORY`, `COOLIFY_DEPLOY_BRANCH` (hatchkit writes them),
+and `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`, a token limited to this
+one Worker. Repository variables: `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`,
+`NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL`; without them the pages carry no
+analytics script.
+
+`packages/client/.env.production` is the dotenvx-encrypted store hatchkit
+reads and writes; it holds the server's settings. Next loads it during the
+client build, so `next.config.ts` drops any `NEXT_PUBLIC_*` value from it
+that is still ciphertext, and `check-export.mjs` fails the build if
+ciphertext reaches `out/`.
 
 ## Checking a release
 
@@ -31,62 +75,63 @@ set, a green build deploys.
 | --- | --- |
 | `https://names.trebeljahr.com/version.json` | `{"commit":"<full sha of the pushed commit>"}` |
 | Homepage `<meta name="build-commit">` | the same sha |
-| `https://names.trebeljahr.com/api/health` | 200, `{"status":"ok","checksProtocol":1,"databaseId":"…"}` |
+| `https://names.trebeljahr.com/api/health` | 200, `{"status":"ok","checksProtocol":1,"databaseId":"f3755ef7-…","version":"<sha>"}` |
+| `curl -sI https://names.trebeljahr.com/` | no `x-powered-by` header (the Worker serves it) |
 | Coolify, app page, Deployments | newest entry: trigger Webhook, that commit, Success |
 
 `/api/health` takes a write lock on the SQLite file, so it fails when the
 account database is missing or read-only, not only when the process is down.
-
-## What runs in production
-
-Coolify project `name-checker`, one Docker Compose app built from
-`docker-compose.yml`. It pulls the `:main` image (`pull_policy: always`) and
-mounts the named volume `auth-data` at `/app/data`. That volume holds
-`auth.db`: accounts, sessions, subscriptions, usage, watches, check jobs and
-billing records. It is production state. On the host the volume is named
-`<compose app uuid>_auth-data`.
-
-A Compose deploy removes the running container and then starts the new one.
-The site is down in between: 10 s in the deployment of 2026-10-01, plus the
-time the stopping container takes to exit. The image waits
-`SHUTDOWN_DRAIN_SECONDS` (20) on SIGTERM, which helps a rolling deploy and
-only delays a Compose one.
+With `AUTH_DB_EXPECTED_ID` set (it is, in production) a container that opened
+any other database file answers 503 with `"reason":"database identity mismatch"`.
 
 ## Rolling back
 
-Redeploy an older image: in Coolify set the app's `CLIENT_IMAGE` variable to
-`ghcr.io/trebeljahr/name-checker-client:<older sha>` and redeploy, or revert
-the commit and push. Every schema change so far adds tables and alters none, so an older image
-reads a newer database. Remove `CLIENT_IMAGE` again before the next push,
-otherwise the push builds an image the app does not pull.
+- Pages: `npx wrangler@4.145.0 versions list --name name-checker-client`,
+  then `npx wrangler@4.145.0 versions deploy <version id>@100% --name name-checker-client`.
+  A version keeps its own files, so this is complete and takes seconds.
+- API server: in Coolify set the app's `SERVER_IMAGE` variable to
+  `ghcr.io/trebeljahr/name-checker-server:<older sha>` and redeploy, or
+  revert the commit and push. Remove `SERVER_IMAGE` again before the next
+  push. Every schema change so far adds tables and alters none, so an older
+  image reads a newer database.
+- The whole split: delete the route `names.trebeljahr.com/*` on the zone
+  (pages return to the origin within seconds) and set `SERVER_IMAGE` to the
+  last Next image, `ghcr.io/trebeljahr/name-checker-client:df90831ea0b08ea5b89c2c3ab17f9736ff70afde`,
+  which serves pages and `/api/*` together.
 
-## Moving to a Docker Image app (rolling deploys)
+## Moving the server to a Docker Image app (rolling deploys)
 
-Coolify replaces a Docker Image app by starting the new container, waiting
-for its health check, then stopping the old one. The image is ready for
-that: `/api/health`, `curl` for Coolify's probe, the SIGTERM drain, and jobs
-that resume in the next container (`src/lib/CHECK_JOBS.md`,
-`src/lib/WATCH_JOBS.md`).
+A Compose deploy stops the running container before it starts the new one:
+`/api/*` is down for about 10 s plus the time the old container takes to
+exit. A Docker Image app starts the new container, waits for its health
+check, then stops the old one. The image is ready for that: `/api/health`,
+`curl` for Coolify's probe, the SIGTERM drain (`drain.cjs`), and jobs that
+resume in the next container (`packages/server/src/lib/CHECK_JOBS.md`,
+`WATCH_JOBS.md`).
 
-The move itself is not done. `hatchkit migrate-runtime` (0.2.18) refuses a
-Compose service that mounts a volume, because a new app would start on an
-empty one. Whoever does the move, by tool or by hand, has to make the new
-app mount the existing volume before its first deploy.
+The move is Rico's run of `hatchkit migrate-runtime` with the volume carried
+by name (nothing is copied):
 
-The guard for that step is `AUTH_DB_EXPECTED_ID`:
+```
+hatchkit migrate-runtime --carry-volume client=auth-data \
+  --health-path client=/api/health --same-json client=/api/health:databaseId
+```
 
-1. Read `databaseId` from production's `/api/health`.
-2. Set `AUTH_DB_EXPECTED_ID` to it on the Compose app in Coolify and deploy.
-   The copy of the environment that the new app receives then carries it.
-3. A container that opened any other database file answers 503 with
-   `"reason":"database identity mismatch"`. Its health check never passes,
-   so Coolify does not route to it and the Compose app keeps serving.
-4. Before traffic moves, the new app's `/api/health` must report the same
-   `databaseId` as production.
+Take and verify a backup first (`pnpm backup:status`, `pnpm backup:list`).
+During verification two containers write one SQLite file in WAL mode on the
+same host, which the job leases are built for. Keep the Compose app stopped,
+not deleted, until the new app has served for a while. Afterwards hatchkit
+points the five `COOLIFY_*` secrets at the new app; the workflow does not
+change.
 
-During the overlap two containers write one SQLite file in WAL mode. Take a
-backup first (`pnpm backup:status`, `pnpm backup:list`) and keep the Compose
-app stopped, not deleted, until the new app has served for a while.
+## Scheduled watch checks
 
-After the move hatchkit points the five secrets at the new app. The workflow
-does not change: the same push then produces a rolling deploy.
+`GET /api/cron/watch` with `Authorization: Bearer $CRON_SECRET` runs the due
+watch checks and sends their emails. Nothing calls it today: `CRON_SECRET` is
+empty in production and Coolify has no scheduled task, so it answers 503.
+(`vercel.json` scheduled it daily at 13:00 UTC while the app was on Vercel.)
+Turning it on is a product decision, because the first run emails every
+watcher whose result changed. To turn it on: set `CRON_SECRET`, then add a
+Coolify scheduled task on the server app, `0 13 * * *`, command
+`curl -fsS -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:6657/api/cron/watch`.
+Read `packages/server/src/lib/WATCH_JOBS.md` first.

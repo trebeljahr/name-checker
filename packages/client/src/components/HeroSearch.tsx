@@ -23,7 +23,9 @@ export function HeroSearch({
       router.push("/check");
       return;
     }
-    router.push(`/check/${encodeURIComponent(q)}`);
+    // A full page load: `/check/<name>` is one static shell page for every
+    // name, which a client-side navigation cannot fetch.
+    window.location.assign(`/check/${encodeURIComponent(q)}`);
   }
 
   const big = size === "lg";

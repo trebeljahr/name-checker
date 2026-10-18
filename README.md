@@ -6,7 +6,7 @@ Shared TypeScript core powers three surfaces:
 
 - **CLI** — `name-check kairos` in your terminal.
 - **MCP server** — `name-check-mcp` over stdio for Claude / Cursor.
-- **Web UI** — Next.js `/check` page with streaming results.
+- **Web UI** — static Next.js pages with streaming results, backed by an API server.
 
 ## Layout
 
@@ -15,8 +15,12 @@ packages/
   shared/    provider interface, orchestrator, ~56 providers
   cli/       bin: name-check
   mcp/       bin: name-check-mcp  (stdio)
-  client/    Next.js: /check page + /api/check route
+  server/    API server (Express): every /api/* route, SQLite account database
+  client/    web pages: a Next.js static export, no server code
 ```
+
+In production the pages are served by a Cloudflare Worker and `/api/*` on
+the same host goes to the API server on Coolify. See `docs/deploy.md`.
 
 ## Providers (56 total)
 
@@ -111,7 +115,7 @@ Tools:
 ### Web UI
 
 ```bash
-pnpm run dev          # Next.js dev on :3742
+pnpm run dev          # pages on :3742, API server on :5818 (proxied under /api)
 ```
 
 - `/` — landing.

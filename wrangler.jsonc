@@ -1,0 +1,24 @@
+// The web client: an assets-only Cloudflare Worker (no `main` script).
+//
+// It is attached to names.trebeljahr.com by Workers routes made outside
+// this file (hatchkit / the Cloudflare API), never by `wrangler deploy`:
+//   names.trebeljahr.com/api/*                       → no Worker (API server on Coolify)
+//   names.trebeljahr.com/.well-known/acme-challenge/* → no Worker (Traefik's certificate)
+//   names.trebeljahr.com/*                           → this Worker
+// With no `routes` key here Wrangler leaves those routes alone, and the CI
+// token needs only Workers Scripts edit on this one Worker.
+//
+// Do not add `main`, `run_worker_first` or `cache`: each one turns free
+// asset requests into requests counted against the Workers Free cap.
+{
+  "$schema": "https://unpkg.com/wrangler@4.145.0/config-schema.json",
+  "name": "name-checker-client",
+  "compatibility_date": "2026-09-30",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./packages/client/out",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  }
+}

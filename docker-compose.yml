@@ -3,8 +3,12 @@
 # Do NOT expose ports here — Coolify's Traefik handles external routing.
 
 services:
+  # The API server (packages/server); the pages are a static export on a
+  # Cloudflare Worker. The service keeps the name `client`: Coolify keys
+  # this app's domain (names.trebeljahr.com) and its SERVICE_* variables on
+  # the service name, so a rename would drop the route. See docs/deploy.md.
   client:
-    image: ${CLIENT_IMAGE:-ghcr.io/trebeljahr/name-checker-client:main}
+    image: ${SERVER_IMAGE:-ghcr.io/trebeljahr/name-checker-server:main}
     pull_policy: always
     volumes:
       - auth-data:/app/data
@@ -37,11 +41,6 @@ services:
       STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID:-}
       CRON_SECRET: ${CRON_SECRET:-}
       PASSPORT_ACTIONS_ENABLED: ${PASSPORT_ACTIONS_ENABLED:-0}
-      NEXT_PUBLIC_API_URL: ${API_URL}
-      NEXT_PUBLIC_WS_URL: ${WS_URL:-}
-      NEXT_PUBLIC_PLAUSIBLE_DOMAIN: ${PLAUSIBLE_DOMAIN:-}
-      NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL: ${PLAUSIBLE_SCRIPT_URL:-}
-      NEXT_PUBLIC_SENTRY_DSN: ${CLIENT_SENTRY_DSN:-}
     restart: unless-stopped
 
 

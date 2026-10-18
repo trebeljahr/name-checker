@@ -1,0 +1,15 @@
+# Cloudflare Workers static assets: https://developers.cloudflare.com/workers/static-assets/redirects/
+# The first matching rule wins. `/api/*` never reaches these rules: a
+# Workers route with no Worker sends it to the API server on Coolify.
+
+# Permalinks. The export has one shell page per dynamic route
+# (app/check/[query], app/passport/[query]); 200 serves it for any name
+# under the requested URL, and the page reads the name from the address bar.
+/check/:query /check/_/ 200
+/check/:query/ /check/_/ 200
+/passport/:query /passport/_/ 200
+/passport/:query/ /passport/_/ 200
+
+# Was a server-side redirect in the Next container.
+/auth/callback /account/ 302
+/auth/callback/ /account/ 302

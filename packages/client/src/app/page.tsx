@@ -171,13 +171,13 @@ export default function LandingPage(): React.ReactElement {
             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span>Try:</span>
               {["kairosprotocol", "lunarcore", "pixeldrift", "fleetview"].map((s) => (
-                <Link
+                <a
                   key={s}
                   href={`/check/${encodeURIComponent(s)}`}
                   className="font-mono underline-offset-2 hover:text-foreground hover:underline"
                 >
                   {s}
-                </Link>
+                </a>
               ))}
             </div>
           </div>

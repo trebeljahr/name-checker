@@ -3,7 +3,7 @@
 //
 // Usage:
 //   node scripts/dev.mjs                Random ports (client 3100-3999, docs 4100-4999, server 5100-5999)
-//   node scripts/dev.mjs --fixed        Fixed ports (client 6657, docs 4000, server 5818)
+//   node scripts/dev.mjs --fixed        Fixed ports (client 3742, docs 4000, server 5818)
 //   node scripts/dev.mjs --docs         Include docs site
 //   node scripts/dev.mjs --fixed --docs Fixed ports with docs
 //   pnpm run dev                        Random ports (client + server)
@@ -50,7 +50,7 @@ let apiPort;
 if (process.env.PORT) {
   clientPort = parseInt(process.env.PORT, 10);
 } else if (fixedMode) {
-  clientPort = 6657;
+  clientPort = 3742;
 } else {
   clientPort = await findRandomFreePort(3100, 3999);
 }
@@ -89,10 +89,14 @@ try {
   process.exit(1);
 }
 
+// One origin, as in production: the browser talks to the Next dev server
+// only, which proxies /api/* to the API server (next.config.ts). The API
+// server's BETTER_AUTH_URL is that public origin, so magic links and the
+// passport callback point at the page the user is on.
 const processes = [
   `"pnpm --filter @starter/shared run dev"`,
-  `"node scripts/wait-for-port.mjs ${apiPort} && PORT=${clientPort} NEXT_PUBLIC_API_URL=http://127.0.0.1:${apiPort} NEXT_PUBLIC_WS_URL=ws://127.0.0.1:${apiPort} pnpm --filter @starter/client run dev"`,
-  `"PORT=${apiPort} FRONTEND_URL=http://127.0.0.1:${clientPort} pnpm --filter @starter/server run dev"`,
+  `"node scripts/wait-for-port.mjs ${apiPort} && API_PROXY_TARGET=http://127.0.0.1:${apiPort} pnpm --filter @starter/client exec next dev --turbopack -p ${clientPort}"`,
+  `"PORT=${apiPort} HOSTNAME=127.0.0.1 BETTER_AUTH_URL=http://127.0.0.1:${clientPort} pnpm --filter @starter/server run dev"`,
 ];
 const names = ["shared", "client", "server"];
 const colors = ["green", "yellow", "cyan"];

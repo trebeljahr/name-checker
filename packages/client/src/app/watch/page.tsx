@@ -143,13 +143,13 @@ export default function WatchListPage(): React.ReactElement {
                         className="cursor-pointer border-t border-border hover:bg-muted/30"
                       >
                         <td className="px-4 py-3 font-mono">
-                          <Link
+                          <a
                             href={`/check/${encodeURIComponent(w.query)}`}
                             onClick={(e) => e.stopPropagation()}
                             className="hover:underline"
                           >
                             {w.query}
-                          </Link>
+                          </a>
                         </td>
                         <td className="px-4 py-3">
                           {w.verdict ? (

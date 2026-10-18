@@ -12,6 +12,12 @@ permissions:
   contents: read
   packages: write
 
+env:
+  # Public origin: the Worker serves the pages, `/api/*` goes to the server.
+  SITE_URL: https://names.trebeljahr.com
+  # Pinned; also used by the deploy job. Bump deliberately.
+  WRANGLER: wrangler@4.145.0
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -23,10 +29,8 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-        # Next prerenders auth routes; never decrypt production secrets in CI.
-        env:
-          BETTER_AUTH_URL: http://127.0.0.1:51847
-          BETTER_AUTH_SECRET: ci-build-fixture-secret-not-for-production-2026
+      # After the build: the packages type against @starter/shared's dist/.
+      - run: pnpm run typecheck
       - run: pnpm run test:unit
 
   e2e:
@@ -40,12 +44,15 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # Against the static export served like the Worker serves it, with the
+      # API server behind /api (playwright.config.ts).
       - run: pnpm run test:e2e
         env:
           CI: "true"
           E2E_PORT: "51847"
 
-  build-client:
+  # The API server image (packages/server). Coolify pulls `:main`.
+  build-server:
     runs-on: ubuntu-latest
     needs: [verify, e2e]
     steps:
@@ -58,25 +65,93 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: packages/client/Dockerfile
+          file: packages/server/Dockerfile
           push: true
-          # NEXT_PUBLIC_* are inlined at image BUILD time; runtime env on
-          # the container does nothing for them. The analytics values are
-          # GitHub Actions repo VARIABLES (not secrets):
-          #   gh variable set NEXT_PUBLIC_PLAUSIBLE_DOMAIN --body names.trebeljahr.com
           build-args: |
             BUILD_COMMIT=${{ github.sha }}
-            NEXT_PUBLIC_PLAUSIBLE_DOMAIN=${{ vars.NEXT_PUBLIC_PLAUSIBLE_DOMAIN }}
-            NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL=${{ vars.NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL }}
           tags: |
-            ghcr.io/${{ github.repository }}-client:main
-            ghcr.io/${{ github.repository }}-client:${{ github.sha }}
+            ghcr.io/${{ github.repository }}-server:main
+            ghcr.io/${{ github.repository }}-server:${{ github.sha }}
 
-  # The single Next.js service deploys only after its image and checks pass.
+  # The web client: a static export uploaded as a new version of the
+  # assets-only Worker `name-checker-client` (wrangler.jsonc). Uploading
+  # does not make it live; the deploy job activates it once the server for
+  # this commit answers. One step would leave seconds of 404s on new chunks.
+  build-client:
+    runs-on: ubuntu-latest
+    needs: [verify, e2e]
+    outputs:
+      version: ${{ steps.upload.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      # NEXT_PUBLIC_* are inlined at build time. The analytics values are
+      # GitHub Actions repo VARIABLES (not secrets):
+      #   gh variable set NEXT_PUBLIC_PLAUSIBLE_DOMAIN --body names.trebeljahr.com
+      - run: pnpm run build:client
+        env:
+          NEXT_PUBLIC_BUILD_COMMIT: ${{ github.sha }}
+          NEXT_PUBLIC_PLAUSIBLE_DOMAIN: ${{ vars.NEXT_PUBLIC_PLAUSIBLE_DOMAIN }}
+          NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL: ${{ vars.NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL }}
+      # A Worker version serves only its own files: carry the chunks of the
+      # last two releases so tabs opened on them keep working. The script is
+      # hatchkit's (cli/src/templates/client-host/scripts/carry-static.mjs).
+      - run: node scripts/carry-static.mjs --site "$SITE_URL" --out packages/client/out
+      - run: node packages/client/scripts/check-export.mjs
+      - name: Upload the client version (not live yet)
+        id: upload
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.ndjson
+        run: |
+          set -euo pipefail
+          npx --yes "$WRANGLER" versions upload \
+            --tag "${GITHUB_SHA:0:12}" --message "$GITHUB_SHA"
+          version=$(jq -r 'select(.type == "version-upload") | .version_id' "$WRANGLER_OUTPUT_FILE_PATH" | tail -n 1)
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "::error::wrangler reported no version id"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "uploaded client version $version"
+
+  # Server first, then the client: the client switch is one step that takes
+  # seconds, so it waits for the verified server. The gap that remains is an
+  # old tab calling the new server, the same as any API release.
   deploy:
     runs-on: ubuntu-latest
-    needs: [build-client]
+    needs: [build-server, build-client]
     steps:
+      # Coolify pulls without credentials. GHCR creates a new package as
+      # private, so the first push of `name-checker-server` cannot be pulled
+      # until the package is made public (package settings on GitHub). Fail
+      # here, before Coolify is called; re-run this job afterwards.
+      - name: Check the server image can be pulled anonymously
+        run: |
+          image="${GITHUB_REPOSITORY}-server"
+          token=$(curl -fsS "https://ghcr.io/token?scope=repository:${image}:pull" | jq -r '.token // empty' || true)
+          if ! curl -fsS -o /dev/null -H "Authorization: Bearer ${token}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
+            "https://ghcr.io/v2/${image}/manifests/${GITHUB_SHA}"; then
+            echo "::error::ghcr.io/${image}:${GITHUB_SHA} cannot be pulled anonymously. Make the package public, then re-run this job."
+            exit 1
+          fi
+
+      # The server image answers /api/* only. While the Next container still
+      # serves the pages (before the Worker route exists), deploying it would
+      # leave names.trebeljahr.com without pages. See docs/deploy.md.
+      - name: Refuse while the Next container serves the pages
+        run: |
+          if curl -fsSI "$SITE_URL/" | grep -qi '^x-powered-by: *next\.js'; then
+            echo "::error::$SITE_URL/ is still served by the Next container. Create the Worker route first (docs/deploy.md)."
+            exit 1
+          fi
+
       # Tell Coolify to deploy. There is no Coolify API token here: each
       # app has its own webhook secret (hatchkit mints it), and a `push`
       # payload signed with it queues a deploy of that one app — it can
@@ -103,9 +178,9 @@ jobs:
           COOLIFY_CLIENT_DEPLOY_SECRET: ${{ secrets.COOLIFY_CLIENT_DEPLOY_SECRET }}
           COOLIFY_CLIENT_DEPLOY_REPOSITORY: ${{ secrets.COOLIFY_CLIENT_DEPLOY_REPOSITORY }}
           COOLIFY_CLIENT_DEPLOY_BRANCH: ${{ secrets.COOLIFY_CLIENT_DEPLOY_BRANCH }}
-        # Every push deploys the app COOLIFY_RESOURCE_UUID names: today the
-        # Compose app, after `hatchkit migrate-runtime` the Docker Image app
-        # (hatchkit repoints the secrets). See docs/deploy.md.
+        # Every push deploys the app COOLIFY_RESOURCE_UUID names: the API
+        # server, on the Compose app until `hatchkit migrate-runtime` moves
+        # it to a Docker Image app (hatchkit repoints the secrets).
         if: env.COOLIFY_BASE_URL != ''
         run: |
           set -euo pipefail
@@ -148,3 +223,38 @@ jobs:
             echo "::error::COOLIFY_BASE_URL is set but no COOLIFY_*RESOURCE_UUID is — nothing was deployed."
             exit 1
           fi
+
+      - name: Wait for the API server to run this commit
+        run: |
+          for _ in $(seq 1 60); do
+            version=$(curl -fsS "$SITE_URL/api/health" | jq -r '.version // empty' || true)
+            if [ "$version" = "$GITHUB_SHA" ]; then
+              echo "API server runs $GITHUB_SHA"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SITE_URL/api/health did not report $GITHUB_SHA within 10 minutes; the client was not switched."
+          exit 1
+
+      - name: Activate the client version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VERSION: ${{ needs.build-client.outputs.version }}
+        run: |
+          npx --yes "$WRANGLER" versions deploy "$VERSION@100%" \
+            --name name-checker-client --message "$GITHUB_SHA" --yes
+
+      - name: Check the client release
+        run: |
+          for _ in $(seq 1 24); do
+            commit=$(curl -fsS "$SITE_URL/version.json" | jq -r '.commit // empty' || true)
+            if [ "$commit" = "$GITHUB_SHA" ]; then
+              echo "client serves $GITHUB_SHA"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$SITE_URL/version.json did not report $GITHUB_SHA within 2 minutes. The server for this commit is live; the client is not."
+          exit 1

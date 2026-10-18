@@ -11,7 +11,7 @@ import type {
   ProviderResult,
 } from "@starter/shared";
 import { BulkMatrix, type BulkRow } from "./BulkMatrix";
-import { FREE_NAMES_PER_REQUEST } from "@/lib/plan-constants";
+import { FREE_NAMES_PER_REQUEST } from "@starter/shared/plan-constants";
 import { useSession } from "@/lib/auth-client";
 import {
   CATEGORY_LABEL_SHORT as CATEGORY_LABEL,

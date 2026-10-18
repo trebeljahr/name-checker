@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { CompareForm } from "@/components/CompareForm";
+import { Suspense } from "react";
+import { CompareFromQuery } from "@/components/CompareFromQuery";
 import { ThemeToggle } from "@/components/ThemeToggle";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Compare names — name-check",
@@ -11,24 +9,7 @@ export const metadata = {
     "Compare up to 10 candidate names side by side across trademarks, domains, socials, app stores, and package registries.",
 };
 
-function parseQueries(raw: string | string[] | undefined): string[] {
-  if (!raw) return [];
-  const joined = Array.isArray(raw) ? raw.join(",") : raw;
-  return joined
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-    .slice(0, 10);
-}
-
-export default async function ComparePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ names?: string | string[] }>;
-}): Promise<React.ReactElement> {
-  const params = await searchParams;
-  const queries = parseQueries(params.names);
-
+export default function ComparePage(): React.ReactElement {
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 pt-6">
@@ -53,7 +34,11 @@ export default async function ComparePage({
           <ThemeToggle />
         </div>
       </div>
-      <CompareForm initialQueries={queries} />
+      {/* `?names=` is read in the browser; the static page renders the form
+          without it first. */}
+      <Suspense fallback={null}>
+        <CompareFromQuery />
+      </Suspense>
     </main>
   );
 }
