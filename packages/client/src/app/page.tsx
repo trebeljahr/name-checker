@@ -360,6 +360,9 @@ export default function LandingPage(): React.ReactElement {
             <a href="#how" className="hover:text-foreground">
               How it works
             </a>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
           </div>
         </div>
       </footer>

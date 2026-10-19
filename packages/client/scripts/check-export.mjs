@@ -33,6 +33,7 @@ for (const required of [
   "passport/_/index.html",
   "account/index.html",
   "compare/index.html",
+  "privacy/index.html",
   "_redirects",
   "_headers",
   "version.json",

@@ -24,6 +24,13 @@ export default function nextConfig(phase: string): NextConfig {
     // `/api/x` to `/api/x/` before the proxy below sees it.
     trailingSlash: !dev,
     images: { unoptimized: true },
+    // Error reporting is opt-in per build. An empty fallback makes the
+    // condition in front of the SDK import (lib/error-reporting/reporter.ts)
+    // a literal, so a build without a DSN folds the import away and ships
+    // none of the SDK. CI passes the value from the repo variable.
+    env: {
+      NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN ?? "",
+    },
     transpilePackages: ["@starter/shared"],
     webpack(config) {
       // Shared ESM source uses .js specifiers for its TypeScript modules.

@@ -139,3 +139,42 @@ watcher whose result changed. To turn it on: set `CRON_SECRET`, then add a
 Coolify scheduled task on the server app, `0 13 * * *`, command
 `curl -fsS -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:6657/api/cron/watch`.
 Read `packages/server/src/lib/WATCH_JOBS.md` first.
+
+## Error reporting
+
+The web client reports unexpected errors to the GlitchTip project
+`name-checker` on glitchtip.trebeljahr.com (org `ricos-web-empire`) when
+`NEXT_PUBLIC_SENTRY_DSN` is set at build time. It is a repository VARIABLE,
+never a secret: the browser posts to the DSN, so it is in the shipped bundle
+either way.
+
+```bash
+gh variable set NEXT_PUBLIC_SENTRY_DSN --repo trebeljahr/name-checker --body 'https://<key>@glitchtip.trebeljahr.com/<id>'
+```
+
+`build-client` passes it to `pnpm run build:client` and prints a
+`::notice::` when it is empty. Empty means off: `next.config.ts` gives the
+variable an empty fallback, so the SDK import in
+`packages/client/src/lib/error-reporting/reporter.ts` folds away and the
+export ships none of the SDK. Nothing loads before mount in either build.
+
+What a report carries is decided in
+`packages/client/src/lib/error-reporting/scrub.ts` (hatchkit's allowlist,
+generated unchanged) and `redact-names.ts`, and the privacy page
+(`/privacy/`, "Error reports") says the same in plain words: the error and
+its stack frames, the page and request addresses with query strings removed
+and checked names replaced by `_` (`/check/<name>/` becomes `/check/_/`),
+the method and status of the last requests, the browser identifier,
+`release` (`name-checker@0.1.0+<commit>`) and `platform` (`web`). No user,
+no cookies, no headers but the browser identifier, no request bodies, no
+console or DOM breadcrumbs, no session replay, no tracing. Change the
+privacy page together with either file. `reporter.test.ts` fails if a
+report would carry a checked name.
+
+The API server does not report errors yet: it has no Sentry SDK and reads
+no `SENTRY_DSN`.
+
+To check that the DSN still accepts events, send one tagged
+`environment: wiring-check` (any Sentry envelope POST to
+`/api/<id>/envelope/?sentry_key=<key>`), then look for it under the
+project's issues with that environment.

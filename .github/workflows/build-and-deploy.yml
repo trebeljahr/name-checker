@@ -89,14 +89,28 @@ jobs:
           node-version-file: .nvmrc
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
-      # NEXT_PUBLIC_* are inlined at build time. The analytics values are
-      # GitHub Actions repo VARIABLES (not secrets):
+      # NEXT_PUBLIC_* are inlined at build time. The analytics and error
+      # reporting values are GitHub Actions repo VARIABLES (not secrets: the
+      # browser posts to the DSN, so it is in the bundle either way):
       #   gh variable set NEXT_PUBLIC_PLAUSIBLE_DOMAIN --body names.trebeljahr.com
+      #   gh variable set NEXT_PUBLIC_SENTRY_DSN --body 'https://<key>@glitchtip.trebeljahr.com/<id>'
       - run: pnpm run build:client
         env:
           NEXT_PUBLIC_BUILD_COMMIT: ${{ github.sha }}
           NEXT_PUBLIC_PLAUSIBLE_DOMAIN: ${{ vars.NEXT_PUBLIC_PLAUSIBLE_DOMAIN }}
           NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL: ${{ vars.NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+      # An empty NEXT_PUBLIC_SENTRY_DSN builds a client that reports nothing
+      # and ships none of the SDK. Say which one this is.
+      - name: Say whether this build reports errors
+        env:
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+        run: |
+          if [ -z "${NEXT_PUBLIC_SENTRY_DSN:-}" ]; then
+            echo "::notice::NEXT_PUBLIC_SENTRY_DSN is not set — this build reports no errors. See docs/deploy.md → Error reporting."
+          else
+            echo "Error reporting is on: NEXT_PUBLIC_SENTRY_DSN is set."
+          fi
       # A Worker version serves only its own files: carry the chunks of the
       # last two releases so tabs opened on them keep working. The script is
       # hatchkit's (cli/src/templates/client-host/scripts/carry-static.mjs).

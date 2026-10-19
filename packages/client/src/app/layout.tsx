@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@/styles/globals.css";
 import { BUILD_COMMIT } from "@/lib/build-identity";
+import { ErrorReporting } from "@/components/ErrorReporting";
 
 export const metadata: Metadata = {
   title: {
@@ -48,6 +49,7 @@ export default function RootLayout({
         )}
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">
+        <ErrorReporting />
         {children}
       </body>
     </html>
