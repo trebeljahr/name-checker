@@ -34,6 +34,7 @@ for (const required of [
   "account/index.html",
   "compare/index.html",
   "privacy/index.html",
+  "imprint/index.html",
   "_redirects",
   "_headers",
   "version.json",

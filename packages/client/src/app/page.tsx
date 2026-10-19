@@ -344,7 +344,7 @@ export default function LandingPage(): React.ReactElement {
             <span className="text-muted-foreground/50">·</span>
             <span>One search. Every place that matters.</span>
           </div>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <Link href="/check" className="hover:text-foreground">
               App
             </Link>
@@ -362,6 +362,9 @@ export default function LandingPage(): React.ReactElement {
             </a>
             <Link href="/privacy" className="hover:text-foreground">
               Privacy
+            </Link>
+            <Link href="/imprint" className="hover:text-foreground">
+              Imprint
             </Link>
           </div>
         </div>
