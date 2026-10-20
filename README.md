@@ -150,3 +150,10 @@ That's it — CLI, MCP, and web UI pick it up via `allProviders`.
 - **Trademarks**: only TMview is auto-checked. Treat every "verify" row as required reading before you commit to a name — trademarks are jurisdiction-specific and class-specific, and a human still needs to read the actual mark records.
 - **Anti-bot platforms (X, TikTok, Twitch, IG, Threads, Steam, LinkedIn)** return inconsistent responses to anonymous requests. They're reported as `manual_verify` even when the probe gets a 200, so you don't get a false confident answer.
 - **RDAP** is the authoritative source for most ICANN gTLDs, but some TLDs respond with 403/429 to anonymous queries (`.fun`, `.lol`, `.gaming`, `.tech` are flaky). The row falls back to `unknown` / `manual_verify` with the registration link.
+
+## License
+
+name-check is free and open source, under two licenses:
+
+- **Web app, API server and browser extension** (`packages/client`, `packages/server`, `packages/extension`): GNU Affero General Public License v3.0 or later (`AGPL-3.0-or-later`). See [LICENSE](LICENSE). If you run a changed copy as a network service, you must offer its source to the people who use it.
+- **CLI, MCP server and the shared core they run on** (`packages/cli`, `packages/mcp`, `packages/shared`): MIT. See the `LICENSE` file in each of those packages.
