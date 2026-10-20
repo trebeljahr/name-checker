@@ -28,6 +28,14 @@ export const metadata: Metadata = {
 
 const THEME_BOOTSTRAP = `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(e){}})();`;
 
+/*
+ * CI sets this to "" when the repo variable is unset. A ternary, never
+ * `domain && <script/>`: as the only child of <head> that renders "" as a
+ * text node, the exported HTML has none, hydration fails (React #418), and
+ * React's recovery drops every <link> in <head> — the stylesheet included.
+ */
+const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
+
 export default function RootLayout({
   children,
 }: {
@@ -37,16 +45,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
-        {process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN && (
+        {plausibleDomain ? (
           <script
             defer
-            data-domain={process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN}
+            data-domain={plausibleDomain}
             src={
               process.env.NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL ||
               "https://plausible.io/js/script.js"
             }
           />
-        )}
+        ) : null}
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ErrorReporting />

@@ -111,6 +111,15 @@ jobs:
           else
             echo "Error reporting is on: NEXT_PUBLIC_SENTRY_DSN is set."
           fi
+      # The HTML can be fine and the page still lose its stylesheet once
+      # React hydrates: a mismatch in the root layout (an empty NEXT_PUBLIC_*
+      # rendered as text in <head>) makes React drop every <link> in <head>.
+      # Check the exact export this job uploads, built with the real env.
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Check the exported landing page stays styled after hydration
+        run: pnpm run test:e2e:export
+        env:
+          CI: "true"
       # A Worker version serves only its own files: carry the chunks of the
       # last two releases so tabs opened on them keep working. The script is
       # hatchkit's (cli/src/templates/client-host/scripts/carry-static.mjs).

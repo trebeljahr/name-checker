@@ -18,6 +18,8 @@ const clientCommand =
 
 export default defineConfig({
   testDir: "./e2e",
+  // e2e/export/ checks the export on its own; see playwright.export.config.ts.
+  testIgnore: ["export/**"],
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
