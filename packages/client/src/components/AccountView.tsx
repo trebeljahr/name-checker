@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ManageBillingButton } from "@/components/ManageBillingButton";
+import {
+  BULK_NAMES_PER_RUN,
+  BULK_RUNS_PER_DAY,
+  PASSPORT_STARTS_PER_DAY,
+} from "@starter/shared/limits";
 
 type Me =
   | { authenticated: false }
-  | { authenticated: true; user: { id: string; email: string }; plan: "free" | "pro" };
+  | { authenticated: true; user: { id: string; email: string } };
 
 export function AccountView(): React.ReactElement | null {
   const router = useRouter();
@@ -47,7 +51,6 @@ export function AccountView(): React.ReactElement | null {
   if (!me?.authenticated) return null;
 
   const session = me;
-  const isPro = me.plan === "pro";
 
   return (
     <main className="min-h-screen bg-background">
@@ -76,32 +79,14 @@ export function AccountView(): React.ReactElement | null {
         </div>
 
         <div className="mt-6 rounded-xl border border-border bg-card/60 p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                Plan
-              </div>
-              <div className="mt-1 text-lg font-medium text-foreground">
-                {isPro ? "Pro — unlimited bulk" : "Free"}
-              </div>
-              {!isPro && (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Free includes up to 5 names per bulk request, 10 runs per
-                  day.
-                </p>
-              )}
-            </div>
-            {isPro ? (
-              <ManageBillingButton />
-            ) : (
-              <Link
-                href="/pricing"
-                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
-              >
-                Upgrade to Pro
-              </Link>
-            )}
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">
+            Daily limits
           </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            name-check is free. A bulk run checks up to {BULK_NAMES_PER_RUN}{" "}
+            names, and you get {BULK_RUNS_PER_DAY} runs a day. You can start{" "}
+            {PASSPORT_STARTS_PER_DAY} Passport reservations a day.
+          </p>
         </div>
       </section>
     </main>

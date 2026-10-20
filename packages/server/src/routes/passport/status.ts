@@ -10,7 +10,6 @@ export async function GET(req: Request): Promise<Response> {
   const filtered = query ? all.filter((r) => r.query === query) : all;
   return Response.json({
     userId: session.userId,
-    plan: session.plan,
     reservations: filtered,
   });
 }

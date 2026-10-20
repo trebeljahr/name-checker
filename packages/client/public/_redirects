@@ -10,6 +10,11 @@
 /passport/:query /passport/_/ 200
 /passport/:query/ /passport/_/ 200
 
+# name-check is free; the pricing page is gone. 302, not 301: a priced
+# tier may come back if measured costs need one.
+/pricing / 302
+/pricing/ / 302
+
 # Was a server-side redirect in the Next container.
 /auth/callback /account/ 302
 /auth/callback/ /account/ 302

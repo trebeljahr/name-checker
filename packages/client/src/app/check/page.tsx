@@ -25,12 +25,6 @@ export default function CheckPage(): React.ReactElement {
           >
             Bulk
           </Link>
-          <Link
-            href="/pricing"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            Pricing
-          </Link>
           <ThemeToggle />
           <UserMenu />
         </div>

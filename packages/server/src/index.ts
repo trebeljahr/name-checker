@@ -1,11 +1,17 @@
 import { createServer } from "node:http";
+import { observeProviderCalls } from "@starter/shared";
 import { createApp } from "./app";
 import { getDb } from "./lib/db";
+import { createProviderCallCounter } from "./lib/provider-calls";
 import { closeHttpServer } from "./shutdown";
 import { startBackgroundWorkers } from "./workers";
 
 const port = Number(process.env.PORT) || 6657;
 const host = process.env.HOSTNAME || "0.0.0.0";
+
+// Every provider call this process makes, counted per day (GET /api/usage).
+const providerCalls = createProviderCallCounter(getDb());
+observeProviderCalls((providerId) => providerCalls.record(providerId));
 
 const server = createServer(createApp());
 server.listen(port, host, () => {

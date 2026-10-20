@@ -53,6 +53,7 @@ it("serves the paths the Next route handlers served", () => {
     "/api/passport/github",
     "/api/passport/npm",
     "/api/passport/status",
+    "/api/usage",
     "/api/variants",
     "/api/watch",
   ]);

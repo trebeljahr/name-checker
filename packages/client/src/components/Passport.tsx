@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   PassportPlatform,
   Reservation,
   ReservationStatus,
 } from "@starter/shared";
+import { PASSPORT_STARTS_PER_DAY } from "@starter/shared/limits";
 import {
   forgetBlueskyPassword,
   prepareBlueskyPassword,
@@ -83,7 +85,6 @@ type PassportProps = { query: string };
 
 type StatusResponse = {
   userId: string;
-  plan: "free" | "pro";
   reservations: Reservation[];
 };
 
@@ -141,7 +142,7 @@ export function Passport({ query }: PassportProps): React.ReactElement {
   const [bskyEmail, setBskyEmail] = useState<string>("");
   const [bskyInvite, setBskyInvite] = useState<string>("");
   const [bskyPassword, setBskyPassword] = useState<string | null>(null);
-  const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [signedIn, setSignedIn] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -150,12 +151,12 @@ export function Passport({ query }: PassportProps): React.ReactElement {
       { cache: "no-store" },
     );
     if (!res.ok) {
-      setPlan("free");
+      setSignedIn(false);
       setReservations({ github: emptyReservation(query, "github"), npm: emptyReservation(query, "npm"), bluesky: emptyReservation(query, "bluesky") });
       return;
     }
     const body = (await res.json()) as StatusResponse;
-    setPlan(body.plan);
+    setSignedIn(true);
     setReservations((prev) => {
       const next = { ...prev };
       for (const r of body.reservations) {
@@ -304,28 +305,25 @@ export function Passport({ query }: PassportProps): React.ReactElement {
           <p className="mt-1 text-sm text-muted-foreground">
             Claim this name across {PLATFORMS.length} platforms in one flow.
             Reservations are recorded server-side and resume if you reload.
+            You can start {PASSPORT_STARTS_PER_DAY} reservations a day.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span
-            className={`rounded px-2 py-1 text-xs font-mono font-medium ring-1 ring-inset ${
-              plan === "pro"
-                ? "bg-emerald-500/10 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300"
-                : "bg-amber-500/10 text-amber-700 ring-amber-500/30 dark:text-amber-300"
-            }`}
-          >
-            plan: {plan.toUpperCase()}
-          </span>
           <span className="text-xs text-muted-foreground">
             {reservedCount}/{PLATFORMS.length} reserved
           </span>
         </div>
       </header>
 
-      {plan === "free" && (
+      {!signedIn && (
         <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-sm text-amber-900 dark:text-amber-200">
-          <strong>Pro feature.</strong> Sign in with an active Pro subscription to
-          reserve names. Anonymous drafts stay in this browser.
+          <Link
+            href="/sign-in"
+            className="font-semibold underline underline-offset-2"
+          >
+            Sign in
+          </Link>{" "}
+          to reserve names. Anonymous drafts stay in this browser.
         </div>
       )}
 

@@ -8,7 +8,8 @@ import {
   type ProviderResult,
 } from "@starter/shared";
 import { cacheKey, checkRateLimit, getClientIp } from "../../lib/rate-limit-cache";
-import { enforceBulkLimits, recordRun, requirePlan } from "../../lib/plan";
+import { enforceBulkLimits, recordRun } from "../../lib/limits";
+import { getSessionFromRequest } from "../../lib/session";
 
 const MAX_BULK = MAX_BULK_QUERIES;
 const BULK_TTL_SECONDS = 10 * 60;
@@ -42,9 +43,12 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
-  const gate = await requirePlan(req);
-  if (!gate.ok) {
-    return Response.json(gate.body, { status: gate.status });
+  const session = await getSessionFromRequest(req);
+  if (!session) {
+    return Response.json(
+      { error: "unauthenticated", signInUrl: "/sign-in" },
+      { status: 401 },
+    );
   }
 
   let body: unknown;
@@ -69,12 +73,12 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
-  const limit = enforceBulkLimits(gate.plan, gate.user.id, queries.length);
+  const limit = enforceBulkLimits(session.user.id, queries.length);
   if (!limit.ok) {
     return Response.json(limit.body, { status: limit.status });
   }
 
-  recordRun(gate.user.id);
+  recordRun(session.user.id);
 
   const url = new URL(req.url);
   if (url.searchParams.get("stream") === "1") {

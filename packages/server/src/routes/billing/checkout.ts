@@ -2,6 +2,11 @@ import { CheckoutHeldError, createCheckoutSession } from "../../lib/checkout";
 import { getSessionFromRequest } from "../../lib/session";
 
 export async function POST(req: Request): Promise<Response> {
+  // Billing is dormant: name-check is free and no page offers a paid plan.
+  // The portal and webhook stay up for any subscription that exists.
+  if (process.env.BILLING_ENABLED !== "1") {
+    return Response.json({ error: "billing_disabled" }, { status: 404 });
+  }
   const session = await getSessionFromRequest(req);
   if (!session) {
     return Response.json({ error: "unauthenticated" }, { status: 401 });

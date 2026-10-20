@@ -4,6 +4,7 @@ import type {
   ReservationFailureCode,
   ReservationResult,
 } from "@starter/shared";
+import { takePassportStart } from "./limits";
 import { type AttemptRef, PassportAttemptError, finishAttempt, setStatus } from "./passport-store";
 
 export const GITHUB_USER_TIMEOUT_MS = 10_000;
@@ -82,18 +83,13 @@ export function requireQuery(value: unknown): string | null {
   return trimmed;
 }
 
-export function readPlanGate(plan: "free" | "pro"): {
-  allowed: boolean;
-  reason: string | null;
-} {
-  if (plan === "pro") return { allowed: true, reason: null };
-  return {
-    allowed: false,
-    reason: "passport reservations require a Pro plan",
-  };
+/** 429 when the user has used today's reservation starts; null takes one. */
+export function passportLimitResponse(userId: string): Response | null {
+  const limit = takePassportStart(userId);
+  return limit.ok ? null : Response.json(limit.body, { status: limit.status });
 }
 
-// Provider mutations remain off until auth, billing and provider setup are verified.
+// Provider mutations remain off until auth and provider setup are verified.
 export function passportOrigin(): string | null {
   const configured = process.env.BETTER_AUTH_URL;
   if (process.env.PASSPORT_ACTIONS_ENABLED !== "1" || !configured) return null;

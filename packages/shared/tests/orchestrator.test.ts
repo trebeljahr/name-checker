@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  observeProviderCalls,
   runCheckWithProviders,
   type CheckStatus,
   type Provider,
@@ -238,5 +239,45 @@ describe("runCheckWithProviders — error path", () => {
     await expect(
       runCheckWithProviders([fakeProvider("a", "available")], { query: "   " }),
     ).rejects.toThrow(/query is required/);
+  });
+});
+
+describe("observeProviderCalls", () => {
+  it("reports each provider call and ignores saved results", async () => {
+    const calls: string[] = [];
+    observeProviderCalls((id) => calls.push(id));
+    try {
+      const saved: ProviderResult = {
+        providerId: "b",
+        providerName: "fake b",
+        category: "social",
+        query: "foo",
+        durationMs: 1,
+        status: "taken",
+      };
+      await runCheckWithProviders(
+        [fakeProvider("a", "available"), fakeProvider("b", "available")],
+        { query: "foo" },
+        undefined,
+        { priorResults: [saved] },
+      );
+      expect(calls).toEqual(["a"]);
+    } finally {
+      observeProviderCalls(undefined);
+    }
+  });
+
+  it("keeps the result when the observer throws", async () => {
+    observeProviderCalls(() => {
+      throw new Error("counter down");
+    });
+    try {
+      const s = await runCheckWithProviders([fakeProvider("a", "available")], {
+        query: "foo",
+      });
+      expect(s.results[0]?.status).toBe("available");
+    } finally {
+      observeProviderCalls(undefined);
+    }
   });
 });

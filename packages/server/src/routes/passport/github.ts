@@ -11,20 +11,13 @@ import {
   oauthAttemptId,
   setStatus,
 } from "../../lib/passport-store";
-import { attemptConflictResponse, readPlanGate, requireQuery } from "../../lib/passport-runtime";
+import { attemptConflictResponse, passportLimitResponse, requireQuery } from "../../lib/passport-runtime";
 
 type StartBody = { query?: unknown; redirectOrigin?: unknown };
 
 export async function POST(req: Request): Promise<Response> {
   const session = await readPassportSession(req);
   if (!session) return Response.json({ error: "unauthenticated" }, { status: 401 });
-  const gate = readPlanGate(session.plan);
-  if (!gate.allowed) {
-    return Response.json(
-      { error: "plan_gate", detail: gate.reason },
-      { status: 402 },
-    );
-  }
   const origin = passportOrigin();
   if (!origin) return Response.json({ error: "passport_not_configured" }, { status: 503 });
   if (req.headers.get("origin") !== origin) return Response.json({ error: "invalid_origin" }, { status: 403 });
@@ -64,6 +57,8 @@ export async function POST(req: Request): Promise<Response> {
       reservation: updated,
     });
   }
+  const limited = passportLimitResponse(session.userId);
+  if (limited) return limited;
   const state = await createOAuthSession({
     userId: session.userId,
     query,

@@ -143,12 +143,30 @@ function verdictFromScore(
   return "likely_taken";
 }
 
+let providerCallObserver: ((providerId: string) => void) | undefined;
+
+/**
+ * Calls `observer` with the provider id before each provider call. The API
+ * server counts calls per day with it, to measure what checks cost; the CLI
+ * and the MCP server set none. An observer that throws never fails a check.
+ */
+export function observeProviderCalls(
+  observer: ((providerId: string) => void) | undefined,
+): void {
+  providerCallObserver = observer;
+}
+
 async function runOne(
   p: Provider,
   query: string,
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<ProviderResult> {
+  try {
+    providerCallObserver?.(p.id);
+  } catch {
+    /* Counting must not change a result. */
+  }
   const start = Date.now();
   const ctrl = new AbortController();
   const t = setTimeout(

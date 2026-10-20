@@ -140,6 +140,26 @@ Coolify scheduled task on the server app, `0 13 * * *`, command
 `curl -fsS -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:6657/api/cron/watch`.
 Read `packages/server/src/lib/WATCH_JOBS.md` first.
 
+## Provider call counts
+
+name-check is free. To measure what it costs before any price exists, the
+API server counts its calls to each provider per UTC day in the
+`provider_calls` table: day, provider id, count. No name, account or
+address is stored with them. CLI and MCP runs are never counted.
+
+`GET /api/usage` with `Authorization: Bearer $USAGE_REPORT_TOKEN` returns
+the last 30 days (`?days=` up to 366), newest first, each with a total and
+the calls per provider. Without `USAGE_REPORT_TOKEN` it answers 503. To turn
+it on, set a long random token in the server's environment, then:
+
+```bash
+curl -fsS -H "Authorization: Bearer $USAGE_REPORT_TOKEN" https://names.trebeljahr.com/api/usage
+```
+
+The fair-use limits that keep these counts bounded are in
+`packages/shared/src/limits.ts`. Billing stays dormant:
+`/api/billing/checkout` answers 404 unless `BILLING_ENABLED=1`.
+
 ## Error reporting
 
 The web client reports unexpected errors to the GlitchTip project

@@ -11,7 +11,7 @@ import type {
   ProviderResult,
 } from "@starter/shared";
 import { BulkMatrix, type BulkRow } from "./BulkMatrix";
-import { FREE_NAMES_PER_REQUEST } from "@starter/shared/plan-constants";
+import { BULK_NAMES_PER_RUN, BULK_RUNS_PER_DAY } from "@starter/shared/limits";
 import { useSession } from "@/lib/auth-client";
 import {
   CATEGORY_LABEL_SHORT as CATEGORY_LABEL,
@@ -20,12 +20,10 @@ import {
 
 const ALL_CATEGORIES: readonly ProviderCategory[] = CATEGORY_ORDER;
 
-const MAX_BULK = 100;
-
 type Parsed = { query: string; label?: string };
 type Me =
   | { authenticated: false }
-  | { authenticated: true; plan: "free" | "pro"; runsToday: number };
+  | { authenticated: true; runsToday: number };
 
 export function BulkForm(): React.ReactElement {
   const recovery = useCheckJob("bulk");
@@ -63,9 +61,7 @@ export function BulkForm(): React.ReactElement {
     return parseText(text);
   }, [text, parsedFromFile]);
 
-  const isPro = me?.authenticated && me.plan === "pro";
-  const overLimit = parsed.length > MAX_BULK;
-  const overFreeLimit = !isPro && parsed.length > FREE_NAMES_PER_REQUEST;
+  const overLimit = parsed.length > BULK_NAMES_PER_RUN;
 
   if (isPending) {
     return <div className="h-32 animate-pulse rounded-md bg-muted" />;
@@ -78,8 +74,9 @@ export function BulkForm(): React.ReactElement {
           Sign in to use bulk check
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Bulk check requires an account. Free includes up to{" "}
-          {FREE_NAMES_PER_REQUEST} names per run, 10 runs per day.
+          Bulk check needs an account to count your daily runs. Each run
+          checks up to {BULK_NAMES_PER_RUN} names, and you get{" "}
+          {BULK_RUNS_PER_DAY} runs a day.
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link
@@ -87,12 +84,6 @@ export function BulkForm(): React.ReactElement {
             className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
           >
             Sign in
-          </Link>
-          <Link
-            href="/pricing"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            See pricing
           </Link>
         </div>
       </div>
@@ -147,8 +138,8 @@ export function BulkForm(): React.ReactElement {
       setError("Add at least one name.");
       return;
     }
-    if (items.length > MAX_BULK) {
-      setError(`Too many names — max ${MAX_BULK}.`);
+    if (items.length > BULK_NAMES_PER_RUN) {
+      setError(`Too many names. A run checks up to ${BULK_NAMES_PER_RUN}.`);
       return;
     }
     const labelByQuery = new Map<string, string | undefined>();
@@ -328,39 +319,16 @@ export function BulkForm(): React.ReactElement {
           </div>
         </div>
 
-        {overFreeLimit && !overLimit && (
-          <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
-            You&apos;ve pasted {parsed.length} names. Free plan caps bulk runs
-            at {FREE_NAMES_PER_REQUEST} names per request.{" "}
-            <Link
-              href="/pricing"
-              className="font-semibold underline underline-offset-2"
-            >
-              Upgrade to Pro
-            </Link>{" "}
-            for unlimited bulk.
-          </div>
-        )}
-
         {overLimit && (
           <div className="rounded-md border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
-            {parsed.length} names parsed — max is {MAX_BULK}. Trim the list and
-            try again.
+            {parsed.length} names parsed. A run checks up to{" "}
+            {BULK_NAMES_PER_RUN}, so trim the list or split it into two runs.
           </div>
         )}
 
         {error && !overLimit && (
           <div className="rounded-md border border-rose-500/50 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
-            {error}{" "}
-            {(error.includes("Free plan limit") ||
-              error.includes("free_limit")) && (
-              <Link
-                href="/pricing"
-                className="font-semibold underline underline-offset-2"
-              >
-                See pricing
-              </Link>
-            )}
+            {error}
           </div>
         )}
 
@@ -372,7 +340,6 @@ export function BulkForm(): React.ReactElement {
               running ||
               parsed.length === 0 ||
               overLimit ||
-              overFreeLimit ||
               categories.length === 0
             }
             className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -390,9 +357,7 @@ export function BulkForm(): React.ReactElement {
           )}
           {me?.authenticated && (
             <span className="text-xs text-muted-foreground">
-              {isPro
-                ? "Plan: Pro"
-                : `Plan: Free · ${me.runsToday}/10 runs today`}
+              {me.runsToday}/{BULK_RUNS_PER_DAY} runs today
             </span>
           )}
         </div>

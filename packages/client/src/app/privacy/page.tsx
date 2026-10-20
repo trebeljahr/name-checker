@@ -46,7 +46,7 @@ export default function PrivacyPage(): React.ReactElement {
         className="mx-auto max-w-3xl space-y-10 px-6 py-12 text-sm leading-relaxed text-muted-foreground"
       >
         <header className="space-y-3">
-          <p className="text-xs uppercase tracking-wide">Last updated 19 October 2026</p>
+          <p className="text-xs uppercase tracking-wide">Last updated 20 October 2026</p>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Privacy</h1>
           <p>
             This page lists what names.trebeljahr.com does with your data. Rico Trebeljahr runs
@@ -81,6 +81,11 @@ export default function PrivacyPage(): React.ReactElement {
             Our server uses your IP address to limit how many checks one address can run per hour.
             It keeps the address in memory and stores a hash of it to count the checks.
           </p>
+          <p>
+            Our server counts how many times it asks each source per day, to measure what the
+            service costs. The count holds the day, the source and a number. It holds no name, no
+            account and no address.
+          </p>
         </Section>
 
         <Section title="Your account">
@@ -94,16 +99,8 @@ export default function PrivacyPage(): React.ReactElement {
             Amazon Web Services (Amazon SES) delivers our emails.
           </p>
           <p>
-            We count your bulk runs per day, to apply the limits of the free plan. To delete your
-            account and its data, email {CONTACT_EMAIL}.
-          </p>
-        </Section>
-
-        <Section title="Payments">
-          <p>
-            Stripe handles payment for the Pro plan, on its own pages. We send Stripe your email
-            address and your account id. We store your Stripe customer id, your plan and the end of
-            your billing period. We never see your card details.
+            We count your bulk runs and the Passport reservations you start per day, to apply the
+            daily limits. To delete your account and its data, email {CONTACT_EMAIL}.
           </p>
         </Section>
 
@@ -160,7 +157,7 @@ export default function PrivacyPage(): React.ReactElement {
         <Section title="Who else handles your data">
           <p>
             Cloudflare carries every request to this site, to our error tracker and to our
-            analytics server. Amazon Web Services delivers our emails. Stripe handles payments.
+            analytics server. Amazon Web Services delivers our emails.
           </p>
         </Section>
       </article>

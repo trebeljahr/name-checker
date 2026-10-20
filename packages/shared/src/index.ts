@@ -1,5 +1,6 @@
 export * from "./types.js";
 export * from "./schemas.js";
+export * from "./limits.js";
 export {
   CATEGORIES,
   ALL_STATUSES,
@@ -13,6 +14,7 @@ export {
 export * from "./normalize.js";
 export { fetchWithTimeout } from "./http.js";
 export {
+  observeProviderCalls,
   runCheck,
   runCheckBatch,
   runCheckWithProviders,

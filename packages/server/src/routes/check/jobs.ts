@@ -2,7 +2,6 @@ import { createCheckJobsHandler } from "../../lib/check-job-handler";
 import { createCheckJobStore } from "../../lib/check-jobs";
 import { getDb } from "../../lib/db";
 import { getSessionFromRequest } from "../../lib/session";
-import { getUserPlan } from "../../lib/plan";
 import { getClientIp } from "../../lib/rate-limit-cache";
 
 let handle: ReturnType<typeof createCheckJobsHandler> | undefined;
@@ -11,9 +10,7 @@ export async function POST(req: Request): Promise<Response> {
     store: createCheckJobStore(getDb()),
     session: async (request) => {
       const session = await getSessionFromRequest(request);
-      return session
-        ? { userId: session.user.id, plan: getUserPlan(session.user.id) }
-        : null;
+      return session ? { userId: session.user.id } : null;
     },
     rateIdentity: getClientIp,
     rateLimit:

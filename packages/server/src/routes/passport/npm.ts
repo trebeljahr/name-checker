@@ -9,7 +9,7 @@ import {
   attemptConflictResponse,
   persistError,
   persistResult,
-  readPlanGate,
+  passportLimitResponse,
   requireQuery,
 } from "../../lib/passport-runtime";
 import { type AttemptRef, beginAttempt, markExternal } from "../../lib/passport-store";
@@ -19,13 +19,6 @@ type Body = { query?: unknown; token?: unknown };
 export async function POST(req: Request): Promise<Response> {
   const session = await readPassportSession(req);
   if (!session) return Response.json({ error: "unauthenticated" }, { status: 401 });
-  const gate = readPlanGate(session.plan);
-  if (!gate.allowed) {
-    return Response.json(
-      { error: "plan_gate", detail: gate.reason },
-      { status: 402 },
-    );
-  }
   const origin = passportOrigin();
   if (!origin) return Response.json({ error: "passport_not_configured" }, { status: 503 });
   if (req.headers.get("origin") !== origin) return Response.json({ error: "invalid_origin" }, { status: 403 });
@@ -56,6 +49,8 @@ export async function POST(req: Request): Promise<Response> {
   }
   const username = process.env.NPM_USERNAME ?? "name-check";
   const email = process.env.NPM_EMAIL ?? "name-check@example.com";
+  const limited = passportLimitResponse(session.userId);
+  if (limited) return limited;
   let attempt: AttemptRef;
   try {
     attempt = beginAttempt({ userId: session.userId, query, platform: "npm", stage: "claimed" });

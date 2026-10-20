@@ -31,6 +31,7 @@ vi.mock("../lib/db", async () => {
 import { getDb } from "../lib/db";
 import { readPassportSession } from "../lib/passport-session";
 import { getUserPlan } from "../lib/plan";
+import { PASSPORT_STARTS_PER_DAY } from "../lib/limits";
 import { beginAttempt, oauthAttemptId, createOAuthSession, consumeOAuthSession, finishAttempt, markExternal, setStatus, listReservations, getReservation } from "../lib/passport-store";
 import { POST as npm } from "../routes/passport/npm";
 import { POST as github } from "../routes/passport/github";
@@ -69,6 +70,7 @@ beforeEach(async () => {
   getDb().exec("DELETE FROM subscriptions");
   await listReservations("alice");
   getDb().exec("DELETE FROM passport_reservations; DELETE FROM passport_oauth; DELETE FROM passport_attempts");
+  getDb().exec("DROP TABLE IF EXISTS passport_daily_starts");
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ login: "fake" }))));
 });
 afterAll(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); getDb().close(); });
@@ -82,10 +84,29 @@ describe("Passport authorization", () => {
     expect(createNpmScopeReservation).not.toHaveBeenCalled();
     expect(exchangeGithubCode).not.toHaveBeenCalled();
   });
-  it("rejects unpaid users even with bypass environment enabled", async () => {
+  it("lets a signed-in user without a subscription reserve", async () => {
     signedIn();
-    for (const handler of [npm, github, bluesky]) expect((await handler(request({ query: "name" }))).status).toBe(402);
-    expect((await callback(new Request("https://app.test/api/passport/callback/github?state=x&code=x"), context)).status).toBe(402);
+    expect((await npm(request({ query: "free", token: "fake-user-token" }))).status).toBe(200);
+    expect((await github(request({ query: "free" }))).status).toBe(200);
+    expect(createNpmScopeReservation).toHaveBeenCalledTimes(1);
+  });
+  it("caps reservation starts per user and day", async () => {
+    signedIn();
+    for (let i = 0; i < PASSPORT_STARTS_PER_DAY; i++)
+      expect((await github(request({ query: `name${i}` }))).status).toBe(200);
+    const limited = await github(request({ query: "one-more" }));
+    expect(limited.status).toBe(429);
+    expect((await limited.json()).error).toBe("passport_limit");
+    expect((await npm(request({ query: "one-more", token: "fake-user-token" }))).status).toBe(429);
+    expect(createNpmScopeReservation).not.toHaveBeenCalled();
+    signedIn("bob");
+    expect((await github(request({ query: "bobs" }))).status).toBe(200);
+  });
+  it("spends no start on a request that fails validation", async () => {
+    signedIn();
+    for (let i = 0; i <= PASSPORT_STARTS_PER_DAY; i++)
+      expect((await npm(request({ query: "name" }))).status).toBe(400);
+    expect((await github(request({ query: "name" }))).status).toBe(200);
   });
   it("fails closed for missing, invalid, and expired billing periods", () => {
     for (const end of [null, "invalid", new Date(Date.now() - 1000).toISOString()]) {
@@ -95,7 +116,7 @@ describe("Passport authorization", () => {
     paid(); expect(getUserPlan("alice")).toBe("pro");
   });
   it("uses the real identity for reservation reads and writes", async () => {
-    signedIn(); paid();
+    signedIn();
     await setStatus({ userId: "bob", query: "private", platform: "npm", status: "reserved" });
     expect((await (await status(request())).json()).reservations).toEqual([]);
     expect((await npm(request({ query: "mine", token: "fake-user-token", userId: "bob" }))).status).toBe(200);
@@ -103,12 +124,12 @@ describe("Passport authorization", () => {
     expect((await listReservations("bob"))[0]?.query).toBe("private");
   });
   it("never falls back to a server npm token", async () => {
-    signedIn(); paid();
+    signedIn();
     expect((await npm(request({ query: "name" }))).status).toBe(400);
     expect(createNpmScopeReservation).not.toHaveBeenCalled();
   });
   it("requires explicit enablement and same-origin mutations", async () => {
-    signedIn(); paid();
+    signedIn();
     vi.stubEnv("PASSPORT_ACTIONS_ENABLED", "0");
     expect((await npm(request({ query: "name", token: "fake" }))).status).toBe(503);
     vi.stubEnv("PASSPORT_ACTIONS_ENABLED", "1");
@@ -132,12 +153,11 @@ describe("Passport authorization", () => {
     expect(await consumeOAuthSession(state, "alice", "github", redirectUri)).toBeNull();
   });
   it("rejects another user's callback and only exchanges once during concurrent callbacks", async () => {
-    signedIn(); paid();
+    signedIn();
     const started = await (await github(request({ query: "name" }))).json();
     const state = new URL(started.authorizeUrl).searchParams.get("state");
     const url = `https://app.test/api/passport/callback/github?state=${state}&code=fake`;
     signedIn("bob");
-    getDb().prepare("INSERT INTO subscriptions VALUES ('bob', 'pro', ?)").run(new Date(Date.now() + 60_000).toISOString());
     expect((await callback(new Request(url), context)).status).toBe(400);
     signedIn();
     const results = await Promise.all([callback(new Request(url), context), callback(new Request(url), context)]);
@@ -168,7 +188,7 @@ function githubCallback(state: string): Promise<Response> {
 type Ok = { ok: true; platform: "npm"; externalId: string; url: string };
 
 describe("Passport mutation recovery", () => {
-  beforeEach(() => { signedIn(); paid(); });
+  beforeEach(() => { signedIn(); });
 
   it("serializes concurrent mutations and refuses to repeat a completed reservation", async () => {
     const pending = deferred<Ok>();

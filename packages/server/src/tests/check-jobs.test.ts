@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCheckJobStore } from "../lib/check-jobs";
 import { startCheckJob } from "../lib/check-job-worker";
-import type { Provider } from "@starter/shared";
+import { BULK_NAMES_PER_RUN, BULK_RUNS_PER_DAY, type Provider } from "@starter/shared";
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -39,7 +39,6 @@ function input(overrides = {}) {
     userId: "alice",
     kind: "bulk" as const,
     payload: { queries: ["example"] },
-    plan: "free" as const,
     names: 1,
     rateIdentity: "fixture",
     rateLimit: 1000,
@@ -69,8 +68,8 @@ describe("durable check receipts", () => {
   it("enforces a shared quota and shared IP bucket across replicas", () => {
     const { a, b } = fixture();
     const stores = [createCheckJobStore(a), createCheckJobStore(b)];
-    for (let i = 0; i < 10; i++) stores[i % 2]!.reserve(input());
-    expect(() => stores[0]!.reserve(input())).toThrow("free_limit_runs");
+    for (let i = 0; i < BULK_RUNS_PER_DAY; i++) stores[i % 2]!.reserve(input());
+    expect(() => stores[0]!.reserve(input())).toThrow("bulk_limit_runs");
     const request = input({
       kind: "single",
       payload: { query: "x" },
@@ -81,6 +80,14 @@ describe("durable check receipts", () => {
     expect(stores[1]!.reserve(request).replay).toBe(true);
     expect(() => stores[1]!.reserve({ ...request, id: randomUUID() })).toThrow(
       "rate_limited",
+    );
+  });
+  it("applies the same bulk size limit to every account", () => {
+    const { a } = fixture();
+    const store = createCheckJobStore(a);
+    expect(store.reserve(input({ names: BULK_NAMES_PER_RUN })).replay).toBe(false);
+    expect(() => store.reserve(input({ names: BULK_NAMES_PER_RUN + 1 }))).toThrow(
+      "bulk_limit_size",
     );
   });
   it("fences a paused writer after another replica claims its expired lease", () => {

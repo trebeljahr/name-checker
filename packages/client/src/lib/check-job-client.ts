@@ -1,3 +1,5 @@
+import { BULK_NAMES_PER_RUN, BULK_RUNS_PER_DAY } from "@starter/shared/limits";
+
 export type CheckKind = "single" | "compare" | "bulk";
 export type PendingCheck = {
   version: 1;
@@ -122,8 +124,8 @@ export async function streamCheckJob(
           error?: string;
         };
         const messages: Record<string, string> = {
-          free_limit_size: "Free plan allows up to 5 names per bulk check.",
-          free_limit_runs: "Free plan allows 10 bulk checks per day.",
+          bulk_limit_size: `A bulk check takes up to ${BULK_NAMES_PER_RUN} names.`,
+          bulk_limit_runs: `You can run ${BULK_RUNS_PER_DAY} bulk checks per day. Try again tomorrow.`,
           session_changed:
             "Your sign-in changed. Sign in with the original account to resume.",
           unauthenticated: "Sign in to run bulk checks.",

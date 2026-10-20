@@ -1,10 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
-import {
-  FREE_NAMES_PER_REQUEST,
-  FREE_RUNS_PER_DAY,
-  type Plan,
-} from "@starter/shared/plan-constants";
+import { BULK_NAMES_PER_RUN, BULK_RUNS_PER_DAY } from "@starter/shared/limits";
 
 export type CheckKind = "single" | "compare" | "bulk";
 export class CheckJobError extends Error {
@@ -33,7 +29,6 @@ type Reservation = {
   userId?: string;
   kind: CheckKind;
   payload: unknown;
-  plan: Plan;
   names: number;
   rateIdentity: string;
   rateLimit: number;
@@ -141,14 +136,14 @@ export function createCheckJobStore(
         if (bucket && bucket.count >= input.rateLimit)
           throw new CheckJobError("rate_limited", 429);
         if (input.kind === "bulk") {
-          if (input.plan !== "pro" && input.names > FREE_NAMES_PER_REQUEST)
-            throw new CheckJobError("free_limit_size", 402);
+          if (input.names > BULK_NAMES_PER_RUN)
+            throw new CheckJobError("bulk_limit_size", 400);
           const day = new Date(now).toISOString().slice(0, 10);
           const usage = db
             .prepare("SELECT runs FROM usage_log WHERE user_id = ? AND day = ?")
             .get(input.userId, day) as { runs: number } | undefined;
-          if (input.plan !== "pro" && (usage?.runs ?? 0) >= FREE_RUNS_PER_DAY)
-            throw new CheckJobError("free_limit_runs", 402);
+          if ((usage?.runs ?? 0) >= BULK_RUNS_PER_DAY)
+            throw new CheckJobError("bulk_limit_runs", 429);
           db.prepare(`INSERT INTO usage_log(user_id, day, runs) VALUES (?, ?, 1)
           ON CONFLICT(user_id, day) DO UPDATE SET runs = runs + 1`).run(
             input.userId,

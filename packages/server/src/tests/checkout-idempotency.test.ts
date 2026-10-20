@@ -54,6 +54,7 @@ beforeEach(async () => {
   vi.resetAllMocks();
   vi.spyOn(Date, "now").mockReturnValue(now);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
+  vi.stubEnv("BILLING_ENABLED", "1");
   vi.stubEnv("STRIPE_SECRET_KEY", "fake-key");
   vi.stubEnv("STRIPE_PRO_PRICE_ID", "price_pro");
   vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.test");
@@ -67,6 +68,14 @@ beforeEach(async () => {
 afterAll(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); getDb().close(); });
 
 describe("checkout idempotency", () => {
+  it("stays off unless billing is enabled", async () => {
+    vi.stubEnv("BILLING_ENABLED", "");
+    const res = await checkout();
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "billing_disabled" });
+    expect(mocks.checkout).not.toHaveBeenCalled();
+  });
+
   it("rejects anonymous requests before touching Stripe", async () => {
     mocks.session.mockResolvedValue(null);
     expect((await checkout()).status).toBe(401);

@@ -16,6 +16,7 @@ import * as passportCallback from "./routes/passport/callback";
 import * as passportGithub from "./routes/passport/github";
 import * as passportNpm from "./routes/passport/npm";
 import * as passportStatus from "./routes/passport/status";
+import * as usage from "./routes/usage";
 import * as variants from "./routes/variants";
 import * as watch from "./routes/watch";
 
@@ -44,6 +45,7 @@ export const ROUTES: ReadonlyArray<[path: string, methods: Methods]> = [
   ["/api/passport/github", passportGithub],
   ["/api/passport/npm", passportNpm],
   ["/api/passport/status", passportStatus],
+  ["/api/usage", usage],
   ["/api/variants", variants],
   ["/api/watch", watch],
 ];

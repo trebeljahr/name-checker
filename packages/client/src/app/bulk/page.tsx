@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BulkForm } from "@/components/BulkForm";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/UserMenu";
+import { BULK_NAMES_PER_RUN } from "@starter/shared/limits";
 
 export const metadata = {
   title: "Bulk name check",
@@ -25,8 +26,8 @@ export default function BulkPage(): React.ReactElement {
               Bulk check
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Paste up to 100 names — get a matrix of trademarks, domains, socials,
-              app stores, packages, and code hosts at a glance.
+              Paste up to {BULK_NAMES_PER_RUN} names — get a matrix of trademarks,
+              domains, socials, app stores, packages, and code hosts at a glance.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -35,12 +36,6 @@ export default function BulkPage(): React.ReactElement {
               className="text-sm text-muted-foreground hover:text-foreground"
             >
               Single check
-            </Link>
-            <Link
-              href="/pricing"
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Pricing
             </Link>
             <ThemeToggle />
             <UserMenu />

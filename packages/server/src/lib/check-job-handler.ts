@@ -5,7 +5,6 @@ import {
 } from "@starter/shared";
 import { z } from "zod";
 import { CheckJobError, type createCheckJobStore } from "./check-jobs";
-import type { Plan } from "@starter/shared/plan-constants";
 import type { Provider } from "@starter/shared";
 import { startCheckJob } from "./check-job-worker";
 
@@ -30,7 +29,7 @@ const envelope = z
 
 export function createCheckJobsHandler(options: {
   store: ReturnType<typeof createCheckJobStore>;
-  session: (req: Request) => Promise<{ userId: string; plan: Plan } | null>;
+  session: (req: Request) => Promise<{ userId: string } | null>;
   rateIdentity: (req: Request) => string;
   rateLimit: number;
   draining?: () => boolean;
@@ -55,7 +54,6 @@ export function createCheckJobsHandler(options: {
         userId,
         kind: data.kind,
         payload: data.input,
-        plan: session?.plan ?? "free",
         names: "queries" in data.input ? data.input.queries.length : 1,
         rateIdentity: options.rateIdentity(req),
         rateLimit: options.rateLimit,

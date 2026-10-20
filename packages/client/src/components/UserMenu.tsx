@@ -61,13 +61,6 @@ export function UserMenu(): React.ReactElement {
           >
             Account
           </Link>
-          <Link
-            href="/pricing"
-            className="block px-3 py-2 text-sm hover:bg-muted"
-            onClick={() => setOpen(false)}
-          >
-            Pricing
-          </Link>
           <button
             type="button"
             className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"

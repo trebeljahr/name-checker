@@ -1,5 +1,5 @@
 import { readPassportSession } from "../../lib/passport-session";
-import { passportOrigin, readPlanGate } from "../../lib/passport-runtime";
+import { passportOrigin } from "../../lib/passport-runtime";
 import {
   createGithubOrg,
   exchangeGithubCode,
@@ -21,7 +21,6 @@ export async function GET(
   const url = new URL(req.url);
   const identity = await readPassportSession(req);
   if (!identity) return Response.json({ error: "unauthenticated" }, { status: 401 });
-  if (!readPlanGate(identity.plan).allowed) return Response.json({ error: "plan_gate" }, { status: 402 });
   const origin = passportOrigin();
   if (!origin || url.origin !== origin) return Response.json({ error: "passport_not_configured" }, { status: 503 });
   const code = url.searchParams.get("code");

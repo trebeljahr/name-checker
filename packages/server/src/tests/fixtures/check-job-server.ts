@@ -29,7 +29,7 @@ const handler = createCheckJobsHandler({
     const row = db
       .prepare("SELECT user_id FROM fixture_sessions WHERE token=?")
       .get(req.headers.get("authorization")) as { user_id: string } | undefined;
-    return row ? { userId: row.user_id, plan: "free" } : null;
+    return row ? { userId: row.user_id } : null;
   },
   catalog: [
     {
