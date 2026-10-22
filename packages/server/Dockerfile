@@ -1,5 +1,5 @@
 # ── Stage 1: Install dependencies ────────────────────────────────────
-FROM node:24-bookworm-slim AS deps
+FROM node:24.22.1-bookworm-slim AS deps
 RUN corepack enable
 WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
@@ -21,7 +21,7 @@ RUN pnpm --filter @starter/server run build
 RUN pnpm --filter @starter/server --prod deploy --legacy /prod
 
 # ── Stage 3: Production runtime ─────────────────────────────────────
-FROM node:24-bookworm-slim AS runtime
+FROM node:24.22.1-bookworm-slim AS runtime
 WORKDIR /app
 ARG BUILD_COMMIT=unknown
 LABEL org.opencontainers.image.revision=$BUILD_COMMIT
