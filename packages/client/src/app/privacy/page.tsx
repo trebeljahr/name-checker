@@ -46,7 +46,7 @@ export default function PrivacyPage(): React.ReactElement {
         className="mx-auto max-w-3xl space-y-10 px-6 py-12 text-sm leading-relaxed text-muted-foreground"
       >
         <header className="space-y-3">
-          <p className="text-xs uppercase tracking-wide">Last updated 20 October 2026</p>
+          <p className="text-xs uppercase tracking-wide">Last updated 6 November 2026</p>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Privacy</h1>
           <p>
             This page lists what names.trebeljahr.com does with your data. Rico Trebeljahr runs
@@ -151,6 +151,17 @@ export default function PrivacyPage(): React.ReactElement {
           <p>
             Like every request, a report arrives with your IP address. The report itself does not
             name it.
+          </p>
+        </Section>
+
+        <Section title="Server logs">
+          <p>
+            The web server in front of this site writes an access log for each request: the time,
+            the address requested (including any query string), the response code, your IP
+            address, your country, the user agent of your browser and the referring page. Some
+            addresses contain the names you check, so the log can hold a name next to your IP
+            address. The log is used only to find attacks and faults, and it is deleted after 14
+            days.
           </p>
         </Section>
 
