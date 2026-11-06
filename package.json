@@ -37,8 +37,8 @@
     "backup:restore": "hatchkit backup restore --project name-checker"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
-    "concurrently": "^9.2.4",
+    "@playwright/test": "^1.64.1",
+    "concurrently": "^9.2.5",
     "mongodb": "^6.21.0",
     "typescript": "^5.9.3"
   },
