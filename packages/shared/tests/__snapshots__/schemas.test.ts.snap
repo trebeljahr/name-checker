@@ -642,35 +642,6 @@ exports[`checkRequestSchema > rejects string body 1`] = `
 }
 `;
 
-exports[`checkRequestSchema > rejects timeout Infinity 1`] = `
-{
-  "flatten": {
-    "fieldErrors": {
-      "timeoutMs": [
-        "Expected integer, received float",
-        "Number must be less than or equal to 60000",
-      ],
-    },
-    "formErrors": [],
-  },
-  "issues": [
-    {
-      "message": "Expected integer, received float",
-      "path": [
-        "timeoutMs",
-      ],
-    },
-    {
-      "message": "Number must be less than or equal to 60000",
-      "path": [
-        "timeoutMs",
-      ],
-    },
-  ],
-  "ok": false,
-}
-`;
-
 exports[`checkRequestSchema > rejects timeout NaN 1`] = `
 {
   "flatten": {

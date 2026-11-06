@@ -10,7 +10,9 @@ import { startCheckJob } from "./check-job-worker";
 
 const envelope = z
   .object({
-    operationId: z.string().uuid(),
+    // z.guid() is zod 3's `.uuid()` pattern; zod 4's z.uuid() also checks the
+    // version and variant bits.
+    operationId: z.guid(),
     owner: z.string().max(200),
     after: z
       .number()

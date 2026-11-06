@@ -1,5 +1,6 @@
 import {
   compareRequestSchema,
+  requestParseOptions,
   getCache,
   runCheck,
   selectProviders,
@@ -41,7 +42,7 @@ export async function POST(req: Request): Promise<Response> {
   } catch {
     return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }
-  const parsed = compareRequestSchema.safeParse(body);
+  const parsed = compareRequestSchema.safeParse(body, requestParseOptions);
   if (!parsed.success) {
     return Response.json(
       { error: "invalid request", issues: parsed.error.flatten() },

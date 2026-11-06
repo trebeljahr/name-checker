@@ -14,6 +14,7 @@ import {
   compareRequestSchema,
   DEFAULT_VARIANT_PROVIDERS,
   findFreeNamesRequestSchema,
+  requestParseOptions,
   runCheck,
   runCheckBatch,
   suggestVariants,
@@ -231,7 +232,7 @@ async function handleListProviders(): Promise<CallToolResult> {
 }
 
 async function handleCheckName(args: unknown): Promise<CallToolResult> {
-  const parsed = checkRequestSchema.safeParse(args ?? {});
+  const parsed = checkRequestSchema.safeParse(args ?? {}, requestParseOptions);
   if (!parsed.success) return invalidArgs(parsed.error.message);
   const summary = await runCheck(parsed.data);
   const markdown = renderMarkdown(summary.results, summary);
@@ -246,7 +247,7 @@ async function handleCheckName(args: unknown): Promise<CallToolResult> {
 }
 
 async function handleCheckBatch(args: unknown): Promise<CallToolResult> {
-  const parsed = batchCheckRequestSchema.safeParse(args ?? {});
+  const parsed = batchCheckRequestSchema.safeParse(args ?? {}, requestParseOptions);
   if (!parsed.success) return invalidArgs(parsed.error.message);
   const batch = await runCheckBatch(parsed.data);
   const markdown = renderBatchMarkdown(batch.queries, batch.results, batch.totalMs);
@@ -259,7 +260,7 @@ async function handleCheckBatch(args: unknown): Promise<CallToolResult> {
 }
 
 async function handleCompareNames(args: unknown): Promise<CallToolResult> {
-  const parsed = compareRequestSchema.safeParse(args ?? {});
+  const parsed = compareRequestSchema.safeParse(args ?? {}, requestParseOptions);
   if (!parsed.success) return invalidArgs(parsed.error.message);
   if (parsed.data.queries.length < 2) {
     return {
@@ -313,7 +314,7 @@ function requireAvailableProviders(
 }
 
 async function handleFindFreeNames(args: unknown): Promise<CallToolResult> {
-  const parsed = findFreeNamesRequestSchema.safeParse(args ?? {});
+  const parsed = findFreeNamesRequestSchema.safeParse(args ?? {}, requestParseOptions);
   if (!parsed.success) return invalidArgs(parsed.error.message);
   const data = parsed.data;
   const requiredProviders = requireAvailableProviders(

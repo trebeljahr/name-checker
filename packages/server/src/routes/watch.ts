@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { providerCategorySchema, runCheck } from "@starter/shared";
+import {
+  providerCategorySchema,
+  requestParseOptions,
+  runCheck,
+} from "@starter/shared";
 import { getSessionFromRequest } from "../lib/session";
 import {
   deleteWatch,
@@ -44,7 +48,7 @@ export async function POST(req: Request): Promise<Response> {
   } catch {
     return Response.json({ error: "invalid JSON" }, { status: 400 });
   }
-  const parsed = postBodySchema.safeParse(body);
+  const parsed = postBodySchema.safeParse(body, requestParseOptions);
   if (!parsed.success) {
     return Response.json(
       { error: "invalid request", issues: parsed.error.flatten() },

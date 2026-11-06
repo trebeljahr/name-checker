@@ -12,9 +12,10 @@ import {
   findFreeNamesRequestSchema,
   providerCategorySchema,
 } from "../src/schemas.js";
+import { requestParseOptions } from "../src/zod-messages.js";
 
 function parse(schema: z.ZodTypeAny, input: unknown): unknown {
-  const result = schema.safeParse(input);
+  const result = schema.safeParse(input, requestParseOptions);
   if (result.success) return { ok: true, data: result.data };
   return {
     ok: false,
@@ -160,12 +161,30 @@ describe("checkRequestSchema", () => {
     ["timeout fractional", { query: "a", timeoutMs: 1000.5 }],
     ["timeout string", { query: "a", timeoutMs: "1000" }],
     ["timeout NaN", { query: "a", timeoutMs: Number.NaN }],
-    ["timeout Infinity", { query: "a", timeoutMs: Number.POSITIVE_INFINITY }],
     ["concurrency zero", { query: "a", concurrency: 0 }],
     ["concurrency too big", { query: "a", concurrency: 51 }],
     ["several problems", { query: "", categories: ["x", "domain", "y"], concurrency: 0 }],
   ])("rejects %s", (_name, input) => {
     expect(parse(checkRequestSchema, input)).toMatchSnapshot();
+  });
+
+  // Zod 4 rejects non-finite numbers in the type check, so Infinity yields one
+  // issue where zod 3 gave two ("Expected integer, received float" and
+  // "Number must be less than or equal to 60000"). It is still rejected, and
+  // JSON request bodies and MCP arguments cannot carry Infinity.
+  it("rejects Infinity", () => {
+    expect(
+      parse(checkRequestSchema, { query: "a", timeoutMs: Number.POSITIVE_INFINITY }),
+    ).toEqual({
+      ok: false,
+      flatten: {
+        fieldErrors: { timeoutMs: ["Expected number, received number"] },
+        formErrors: [],
+      },
+      issues: [
+        { path: ["timeoutMs"], message: "Expected number, received number" },
+      ],
+    });
   });
 });
 
@@ -256,7 +275,10 @@ describe("compareRequestSchema", () => {
 describe("MCP error text", () => {
   // The MCP server returns `Invalid arguments: ${error.message}`.
   it("is a JSON list of issues that carries each message and path", () => {
-    const result = checkRequestSchema.safeParse({ query: "", concurrency: 0 });
+    const result = checkRequestSchema.safeParse(
+      { query: "", concurrency: 0 },
+      requestParseOptions,
+    );
     expect(result.success).toBe(false);
     if (result.success) return;
     const issues = JSON.parse(result.error.message) as Array<{
