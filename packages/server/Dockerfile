@@ -26,9 +26,15 @@ WORKDIR /app
 ARG BUILD_COMMIT=unknown
 LABEL org.opencontainers.image.revision=$BUILD_COMMIT
 
-# Coolify's configured health probe runs curl inside the image.
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+# Upgrade Debian packages so a rebuild picks up security fixes before the
+# node base image is republished. The runtime never calls npm or npx, and the
+# npm bundled in the base image carries its own vulnerable dependencies, so it
+# is removed. Coolify's configured health probe runs curl inside the image.
+RUN apt-get update \
+  && apt-get upgrade -y \
+  && apt-get install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 ENV NODE_ENV=production
 ENV PORT=6657
