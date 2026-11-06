@@ -1,0 +1,629 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`POST /api/check > rejects bad category and concurrency 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "categories": [
+          "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'x'",
+        ],
+        "concurrency": [
+          "Number must be less than or equal to 50",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check > rejects blank query 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "query": [
+          "String must contain at least 1 character(s)",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check > rejects empty object 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "query": [
+          "Required",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check > rejects long query 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "query": [
+          "String must contain at most 80 character(s)",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check > rejects malformed JSON 1`] = `
+{
+  "body": {
+    "error": "invalid JSON body",
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check > rejects null 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {},
+      "formErrors": [
+        "Expected object, received null",
+      ],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check > rejects string timeout 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "timeoutMs": [
+          "Expected number, received string",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/bulk > rejects bad category 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "categories": [
+          "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'x'",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/bulk > rejects blank entry 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "queries": [
+          "String must contain at least 1 character(s)",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/bulk > rejects empty object 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "queries": [
+          "Required",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/bulk > rejects empty queries 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "queries": [
+          "Array must contain at least 1 element(s)",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/bulk > rejects malformed JSON 1`] = `
+{
+  "body": {
+    "error": "invalid JSON body",
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/bulk > rejects too many queries 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "queries": [
+          "Array must contain at most 100 element(s)",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/compare > rejects array 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {},
+      "formErrors": [
+        "Expected object, received array",
+      ],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/compare > rejects batchConcurrency 11 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "batchConcurrency": [
+          "Number must be less than or equal to 10",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/compare > rejects eleven queries 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "queries": [
+          "Array must contain at most 10 element(s)",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/compare > rejects malformed JSON 1`] = `
+{
+  "body": {
+    "error": "invalid JSON body",
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles after over MAX_SAFE_INTEGER 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles array body 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles bad inner input 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles bulk with after 1`] = `
+{
+  "body": {
+    "error": "captured",
+  },
+  "reserved": [
+    {
+      "id": "6f1c1f0e-8a3b-4c2d-9e4f-0a1b2c3d4e5f",
+      "kind": "bulk",
+      "names": 2,
+      "owner": "anonymous",
+      "payload": {
+        "queries": [
+          "a",
+          "b",
+        ],
+        "timeoutMs": 5000,
+      },
+      "userId": undefined,
+    },
+  ],
+  "status": 409,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles compare at MAX_SAFE_INTEGER 1`] = `
+{
+  "body": {
+    "error": "captured",
+  },
+  "reserved": [
+    {
+      "id": "6f1c1f0e-8a3b-4c2d-9e4f-0a1b2c3d4e5f",
+      "kind": "compare",
+      "names": 2,
+      "owner": "anonymous",
+      "payload": {
+        "batchConcurrency": 3,
+        "queries": [
+          "a",
+          "b",
+        ],
+      },
+      "userId": undefined,
+    },
+  ],
+  "status": 409,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles fractional after 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles malformed JSON 1`] = `
+{
+  "body": {
+    "error": "check_unavailable",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles negative after 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles nil uuid 1`] = `
+{
+  "body": {
+    "error": "captured",
+  },
+  "reserved": [
+    {
+      "id": "00000000-0000-0000-0000-000000000000",
+      "kind": "single",
+      "names": 1,
+      "owner": "anonymous",
+      "payload": {
+        "query": "a",
+      },
+      "userId": undefined,
+    },
+  ],
+  "status": 409,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles no kind 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles non-uuid operationId 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles null after 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles owner at 200 chars (session mismatch) 1`] = `
+{
+  "body": {
+    "error": "session_changed",
+  },
+  "reserved": [],
+  "status": 401,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles owner over 200 chars 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles single with bulk input 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles single, after defaults to 0, unknown keys stripped 1`] = `
+{
+  "body": {
+    "error": "captured",
+  },
+  "reserved": [
+    {
+      "id": "6f1c1f0e-8a3b-4c2d-9e4f-0a1b2c3d4e5f",
+      "kind": "single",
+      "names": 1,
+      "owner": "anonymous",
+      "payload": {
+        "query": "acme",
+      },
+      "userId": undefined,
+    },
+  ],
+  "status": 409,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles unknown kind 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles uppercase and any-version uuid 1`] = `
+{
+  "body": {
+    "error": "captured",
+  },
+  "reserved": [
+    {
+      "id": "12345678-1234-1234-1234-123456789ABC",
+      "kind": "single",
+      "names": 1,
+      "owner": "anonymous",
+      "payload": {
+        "query": "a",
+      },
+      "userId": undefined,
+    },
+  ],
+  "status": 409,
+}
+`;
+
+exports[`POST /api/check/jobs envelope > handles uuid with braces 1`] = `
+{
+  "body": {
+    "error": "invalid_request",
+  },
+  "reserved": [],
+  "status": 400,
+}
+`;
+
+exports[`POST /api/watch > rejects bad category 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "categories": [
+          "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'x'",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/watch > rejects empty object 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "query": [
+          "Required",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/watch > rejects empty query 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "query": [
+          "String must contain at least 1 character(s)",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/watch > rejects long query 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "query": [
+          "String must contain at most 80 character(s)",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/watch > rejects malformed JSON 1`] = `
+{
+  "body": {
+    "error": "invalid JSON",
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/watch > rejects numeric query 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "query": [
+          "Expected string, received number",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;
+
+exports[`POST /api/watch > rejects providers not strings 1`] = `
+{
+  "body": {
+    "error": "invalid request",
+    "issues": {
+      "fieldErrors": {
+        "providers": [
+          "Expected string, received number",
+        ],
+      },
+      "formErrors": [],
+    },
+  },
+  "status": 400,
+}
+`;

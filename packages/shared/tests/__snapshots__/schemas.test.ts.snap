@@ -1,0 +1,962 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`batchCheckRequestSchema > rejects batchConcurrency fractional 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "batchConcurrency": [
+        "Expected integer, received float",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected integer, received float",
+      "path": [
+        "batchConcurrency",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`batchCheckRequestSchema > rejects batchConcurrency too big 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "batchConcurrency": [
+        "Number must be less than or equal to 20",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Number must be less than or equal to 20",
+      "path": [
+        "batchConcurrency",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`batchCheckRequestSchema > rejects batchConcurrency zero 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "batchConcurrency": [
+        "Number must be greater than or equal to 1",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Number must be greater than or equal to 1",
+      "path": [
+        "batchConcurrency",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`batchCheckRequestSchema > rejects empty queries 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "Array must contain at least 1 element(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Array must contain at least 1 element(s)",
+      "path": [
+        "queries",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles batchConcurrency is stripped, not checked 1`] = `
+{
+  "data": {
+    "queries": [
+      "a",
+    ],
+  },
+  "ok": true,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles blank entry 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "String must contain at least 1 character(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "String must contain at least 1 character(s)",
+      "path": [
+        "queries",
+        1,
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles empty queries 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "Array must contain at least 1 element(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Array must contain at least 1 element(s)",
+      "path": [
+        "queries",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles long entry 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "String must contain at most 80 character(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "String must contain at most 80 character(s)",
+      "path": [
+        "queries",
+        1,
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles missing queries 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "Required",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Required",
+      "path": [
+        "queries",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles queries not array 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "Expected array, received string",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected array, received string",
+      "path": [
+        "queries",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles timeout too small 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "timeoutMs": [
+        "Number must be greater than or equal to 1000",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Number must be greater than or equal to 1000",
+      "path": [
+        "timeoutMs",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles too many queries 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "Array must contain at most 100 element(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Array must contain at most 100 element(s)",
+      "path": [
+        "queries",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`bulkCheckRequestSchema > handles unknown category 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "categories": [
+        "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'nope'",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'nope'",
+      "path": [
+        "categories",
+        0,
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects array body 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {},
+    "formErrors": [
+      "Expected object, received array",
+    ],
+  },
+  "issues": [
+    {
+      "message": "Expected object, received array",
+      "path": [],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects blank query 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "query": [
+        "String must contain at least 1 character(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "String must contain at least 1 character(s)",
+      "path": [
+        "query",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects category not array 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "categories": [
+        "Expected array, received string",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected array, received string",
+      "path": [
+        "categories",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects concurrency too big 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "concurrency": [
+        "Number must be less than or equal to 50",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Number must be less than or equal to 50",
+      "path": [
+        "concurrency",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects concurrency zero 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "concurrency": [
+        "Number must be greater than or equal to 1",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Number must be greater than or equal to 1",
+      "path": [
+        "concurrency",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects empty query 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "query": [
+        "String must contain at least 1 character(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "String must contain at least 1 character(s)",
+      "path": [
+        "query",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects excludeProviders not array 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "excludeProviders": [
+        "Expected array, received string",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected array, received string",
+      "path": [
+        "excludeProviders",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects long query 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "query": [
+        "String must contain at most 80 character(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "String must contain at most 80 character(s)",
+      "path": [
+        "query",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects missing query 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "query": [
+        "Required",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Required",
+      "path": [
+        "query",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects no body 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {},
+    "formErrors": [
+      "Required",
+    ],
+  },
+  "issues": [
+    {
+      "message": "Required",
+      "path": [],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects null body 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {},
+    "formErrors": [
+      "Expected object, received null",
+    ],
+  },
+  "issues": [
+    {
+      "message": "Expected object, received null",
+      "path": [],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects null query 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "query": [
+        "Expected string, received null",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected string, received null",
+      "path": [
+        "query",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects numeric query 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "query": [
+        "Expected string, received number",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected string, received number",
+      "path": [
+        "query",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects provider not string 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "providers": [
+        "Expected string, received number",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected string, received number",
+      "path": [
+        "providers",
+        0,
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects several problems 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "categories": [
+        "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'x'",
+        "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'y'",
+      ],
+      "concurrency": [
+        "Number must be greater than or equal to 1",
+      ],
+      "query": [
+        "String must contain at least 1 character(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "String must contain at least 1 character(s)",
+      "path": [
+        "query",
+      ],
+    },
+    {
+      "message": "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'x'",
+      "path": [
+        "categories",
+        0,
+      ],
+    },
+    {
+      "message": "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'y'",
+      "path": [
+        "categories",
+        2,
+      ],
+    },
+    {
+      "message": "Number must be greater than or equal to 1",
+      "path": [
+        "concurrency",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects string body 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {},
+    "formErrors": [
+      "Expected object, received string",
+    ],
+  },
+  "issues": [
+    {
+      "message": "Expected object, received string",
+      "path": [],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects timeout Infinity 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "timeoutMs": [
+        "Expected integer, received float",
+        "Number must be less than or equal to 60000",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected integer, received float",
+      "path": [
+        "timeoutMs",
+      ],
+    },
+    {
+      "message": "Number must be less than or equal to 60000",
+      "path": [
+        "timeoutMs",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects timeout NaN 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "timeoutMs": [
+        "Expected number, received nan",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected number, received nan",
+      "path": [
+        "timeoutMs",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects timeout fractional 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "timeoutMs": [
+        "Expected integer, received float",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected integer, received float",
+      "path": [
+        "timeoutMs",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects timeout string 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "timeoutMs": [
+        "Expected number, received string",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected number, received string",
+      "path": [
+        "timeoutMs",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects timeout too big 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "timeoutMs": [
+        "Number must be less than or equal to 60000",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Number must be less than or equal to 60000",
+      "path": [
+        "timeoutMs",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects timeout too small 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "timeoutMs": [
+        "Number must be greater than or equal to 1000",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Number must be greater than or equal to 1000",
+      "path": [
+        "timeoutMs",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`checkRequestSchema > rejects unknown category 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "categories": [
+        "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'nope'",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'nope'",
+      "path": [
+        "categories",
+        0,
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`compareRequestSchema > handles batchConcurrency 11 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "batchConcurrency": [
+        "Number must be less than or equal to 10",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Number must be less than or equal to 10",
+      "path": [
+        "batchConcurrency",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`compareRequestSchema > handles blank entry 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "String must contain at least 1 character(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "String must contain at least 1 character(s)",
+      "path": [
+        "queries",
+        1,
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`compareRequestSchema > handles eleven queries 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "Array must contain at most 10 element(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Array must contain at most 10 element(s)",
+      "path": [
+        "queries",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`compareRequestSchema > handles one query passes the schema 1`] = `
+{
+  "data": {
+    "queries": [
+      "a",
+    ],
+  },
+  "ok": true,
+}
+`;
+
+exports[`findFreeNamesRequestSchema > handles categories key is stripped 1`] = `
+{
+  "data": {
+    "queries": [
+      "a",
+    ],
+  },
+  "ok": true,
+}
+`;
+
+exports[`findFreeNamesRequestSchema > handles required providers not strings 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "requireAvailableProviders": [
+        "Expected string, received null",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Expected string, received null",
+      "path": [
+        "requireAvailableProviders",
+        0,
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`findFreeNamesRequestSchema > handles too many queries 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "queries": [
+        "Array must contain at most 100 element(s)",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Array must contain at most 100 element(s)",
+      "path": [
+        "queries",
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
+
+exports[`findFreeNamesRequestSchema > handles unknown required category 1`] = `
+{
+  "flatten": {
+    "fieldErrors": {
+      "requireAvailableCategories": [
+        "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'x'",
+      ],
+    },
+    "formErrors": [],
+  },
+  "issues": [
+    {
+      "message": "Invalid enum value. Expected 'trademark' | 'domain' | 'social' | 'appstore' | 'package' | 'code', received 'x'",
+      "path": [
+        "requireAvailableCategories",
+        0,
+      ],
+    },
+  ],
+  "ok": false,
+}
+`;
