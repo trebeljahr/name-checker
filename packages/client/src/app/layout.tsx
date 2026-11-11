@@ -4,6 +4,9 @@ import { BUILD_COMMIT } from "@/lib/build-identity";
 import { ErrorReporting } from "@/components/ErrorReporting";
 
 export const metadata: Metadata = {
+  // Absolute og:image and twitter:image URLs for opengraph-image.jpg and
+  // twitter-image.jpg (made from docs/marketing/og-wordmark.png).
+  metadataBase: new URL("https://names.trebeljahr.com"),
   title: {
     default: "Name Checker",
     template: "%s | Name Checker",
