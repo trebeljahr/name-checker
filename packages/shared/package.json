@@ -23,7 +23,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "nodemailer": "^10.3.1",
+    "nodemailer": "^10.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
