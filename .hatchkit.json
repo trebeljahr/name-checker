@@ -17,10 +17,6 @@
     "server": 5818,
     "client": 6657
   },
-  "localDev": {
-    "slug": "names",
-    "domain": "local.trebeljahr.com"
-  },
   "coolifyRuntime": "image",
   "containerPorts": {
     "app": 6657

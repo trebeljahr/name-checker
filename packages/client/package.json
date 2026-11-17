@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hatchkit/dev-plugin-next": "^0.2.19",
     "@sentry/browser": "^11.12.0",
     "@starter/shared": "workspace:*",
     "@stripe/stripe-js": "^9.17.0",

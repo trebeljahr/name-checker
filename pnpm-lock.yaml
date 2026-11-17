@@ -43,9 +43,6 @@ importers:
 
   packages/client:
     dependencies:
-      '@hatchkit/dev-plugin-next':
-        specifier: ^0.2.19
-        version: 0.2.19(next@15.5.29(@playwright/test@1.65.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))
       '@sentry/browser':
         specifier: ^11.12.0
         version: 11.12.0
@@ -601,14 +598,6 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
-
-  '@hatchkit/dev-plugin-next@0.2.19':
-    resolution: {integrity: sha512-OfqNCDyj8Zv+KsS3E3jogqyBuzTTcbtHRubELpXdFz3jEbJeLsUGF65lJeSdxtym4XSyHbJvGsNA6OoD8QY32w==}
-    peerDependencies:
-      next: '>=14'
-
-  '@hatchkit/dev-shared@0.2.19':
-    resolution: {integrity: sha512-YxHlMwgajF8jlPs4mFxx/uUk+4XJJP+pmxI+SxzXJqN7+N6+8pWWI27dDuCnWV/xgfJFYP+7m7I7An8/eW0vBw==}
 
   '@hono/node-server@2.1.5':
     resolution: {integrity: sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q==}
@@ -3093,13 +3082,6 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.2':
     optional: true
-
-  '@hatchkit/dev-plugin-next@0.2.19(next@15.5.29(@playwright/test@1.65.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))':
-    dependencies:
-      '@hatchkit/dev-shared': 0.2.19
-      next: 15.5.29(@playwright/test@1.65.1)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-
-  '@hatchkit/dev-shared@0.2.19': {}
 
   '@hono/node-server@2.1.5(hono@4.13.14)':
     dependencies:
